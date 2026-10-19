@@ -1,0 +1,29 @@
+{
+  "name": "ghost-driver",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Experimental pure-browser sim racing video + telemetry playback that drives a force-feedback wheel.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node tools/copy-docs.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "probe": "node tools/simhub-probe.mjs",
+    "record": "node tools/simhub-record.mjs",
+    "capture": "node tools/obs-capture.mjs",
+    "mock:simhub": "node tools/mock-simhub.mjs"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5",
+    "ws": "^8.22.0"
+  }
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ghost Driver">
+  <rect width="64" height="64" rx="14" fill="#080b0f"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#7fe3d0" stroke-width="2.5" opacity="0.9"/>
+  <circle cx="32" cy="32" r="4.5" fill="#7fe3d0"/>
+  <path d="M32 27v10M27.7 29.5L32 32l4.3-2.5" stroke="#7fe3d0" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M22 42V29.5C22 23.7 26.5 19 32 19s10 4.7 10 10.5V42l-3.3-2.6L35.4 42 32 39.4 28.6 42l-3.3-2.6L22 42z"
+        fill="#e8f0f7" opacity="0.95"/>
+  <circle cx="27" cy="29.5" r="1.6" fill="#080b0f"/>
+  <circle cx="37" cy="29.5" r="1.6" fill="#080b0f"/>
+</svg>
