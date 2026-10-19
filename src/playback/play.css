@@ -250,11 +250,15 @@ input[type="range"]::-moz-range-thumb {
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.player:fullscreen:hover .transport,
-.player:fullscreen:focus-within .transport {
+.player:fullscreen.controls-visible .transport,
+.player:fullscreen .transport:focus-within {
   opacity: 1;
   pointer-events: auto;
   transform: none;
+}
+
+.player:fullscreen:not(.controls-visible) {
+  cursor: none;
 }
 
 .player:fullscreen .transport .timeline {

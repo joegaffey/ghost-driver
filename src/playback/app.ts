@@ -34,6 +34,7 @@ const SETTINGS_KEY = 'ghost-driver.playback.settings';
 const SETTINGS_VERSION = 2;
 const DEFAULT_WHEEL_STRENGTH = 0.25;
 const MAX_WHEEL_STRENGTH = 0.5;
+const FULLSCREEN_IDLE_MS = 2500;
 
 export function initPlaybackApp(root: HTMLElement): void {
   root.innerHTML = `
@@ -295,6 +296,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   let wheelStrength = DEFAULT_WHEEL_STRENGTH;
   let wheelInvert = false;
   let connectingWheel = false;
+  let controlsTimer = 0;
   let wheelCenterOffset = 0;
   let trackingArmed = false;
   let trackingForceActive = false;
@@ -982,11 +984,38 @@ export function initPlaybackApp(root: HTMLElement): void {
     loadTelemetryDocument(buildSyntheticTelemetry(120, 60));
   }
 
+  function scheduleControlsHide(): void {
+    window.clearTimeout(controlsTimer);
+    controlsTimer = window.setTimeout(() => {
+      if (document.fullscreenElement !== player) return;
+      const transport = player.querySelector<HTMLElement>('.transport');
+      if (transport && (transport.matches(':hover') || transport.contains(document.activeElement))) {
+        scheduleControlsHide();
+        return;
+      }
+      player.classList.remove('controls-visible');
+    }, FULLSCREEN_IDLE_MS);
+  }
+
+  function showFullscreenControls(): void {
+    if (document.fullscreenElement !== player) return;
+    player.classList.add('controls-visible');
+    scheduleControlsHide();
+  }
+
   function updateFullscreenUi(): void {
     const active = document.fullscreenElement === player;
     fullscreenButton.textContent = active ? 'Restore' : 'Maximize';
     fullscreenButton.title = active ? 'Exit fullscreen' : 'Maximize video';
     player.classList.toggle('is-fullscreen', active);
+    if (active) {
+      fullscreenButton.blur();
+      showFullscreenControls();
+    }
+    else {
+      window.clearTimeout(controlsTimer);
+      player.classList.remove('controls-visible');
+    }
   }
 
   async function toggleFullscreen(): Promise<void> {
@@ -1085,6 +1114,8 @@ export function initPlaybackApp(root: HTMLElement): void {
   playButton.addEventListener('click', () => void togglePlay());
   fullscreenButton.addEventListener('click', () => void toggleFullscreen());
   document.addEventListener('fullscreenchange', updateFullscreenUi);
+  player.addEventListener('pointermove', showFullscreenControls);
+  player.addEventListener('pointerdown', showFullscreenControls);
 
   wheelConnect.addEventListener('click', () => void toggleWheelConnection());
 
@@ -1178,6 +1209,8 @@ export function initPlaybackApp(root: HTMLElement): void {
     ) {
       return;
     }
+
+    showFullscreenControls();
 
     if (event.code === 'Space') {
       event.preventDefault();
