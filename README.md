@@ -8,7 +8,7 @@
 
 Ghost Driver is a static web app. You load a video (local file, direct URL or YouTube), load a telemetry file, connect a compatible wheel over WebHID, and the wheel moves with the recorded steering. The wheel behaves like a ghost driver.
 
-It is not limited to sim racing. Use it with simulator laps, real onboard footage, track days, karting, rally, or any driving video that has a matching telemetry file. The video and telemetry do not need to come from the same source; the offset and lead controls align them.
+Ghost Driver supports both sim and real racing. Use it with simulator laps, real onboard footage, track days, karting, rally, or any driving video that has a matching telemetry file. The video and telemetry do not need to come from the same source; the offset and lead controls align them.
 
 > **Status: playback + wheel tracking.** Video (local, direct URL and YouTube), synthetic telemetry, the sync overlay, WebHID wheel connection, manual force tests and armed telemetry tracking work. Gain and safety tuning continue. The product and technical contract live in [SPEC.md](./SPEC.md).
 
