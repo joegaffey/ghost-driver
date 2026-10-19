@@ -435,8 +435,9 @@ input[type="range"]::-moz-range-thumb {
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
-  background: rgba(7, 12, 17, 0.3);
+  background: rgba(7, 12, 17, 0.45);
   backdrop-filter: blur(8px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 
@@ -446,7 +447,7 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   gap: 7px;
   min-height: 18px;
-  color: var(--muted);
+  color: #c7d3df;
   font-size: 0.66rem;
 }
 
@@ -483,8 +484,8 @@ input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 14px rgba(127, 227, 208, 0.8);
+  background: #3b82f6;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.85);
   transform: translate(-50%, -50%);
   transition: left 45ms linear;
 }
@@ -512,12 +513,12 @@ input[type="range"]::-moz-range-thumb {
   padding: 6px 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
-  background: rgba(7, 12, 17, 0.4);
+  background: rgba(7, 12, 17, 0.5);
   backdrop-filter: blur(6px);
 }
 
 .hud-stat span {
-  color: var(--muted);
+  color: #c7d3df;
   font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -530,7 +531,7 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hud-stat em {
-  color: var(--muted);
+  color: #c7d3df;
   font-size: 0.6rem;
   font-style: normal;
 }
@@ -547,7 +548,7 @@ input[type="range"]::-moz-range-thumb {
   grid-template-columns: 58px minmax(0, 1fr) 36px;
   align-items: center;
   gap: 7px;
-  color: var(--muted);
+  color: #c7d3df;
   font-size: 0.66rem;
 }
 

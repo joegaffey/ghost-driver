@@ -35,7 +35,7 @@ function drawLine(
     else ctx.lineTo(x, y);
   }
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 3.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();
