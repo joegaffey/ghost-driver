@@ -107,6 +107,7 @@ export function initPlaybackApp(root: HTMLElement): void {
             <button id="playPause" class="primary" type="button">Play</button>
             <input id="timeline" class="timeline" type="range" min="0" max="1" step="0.01" value="0" />
             <span id="timeReadout" class="time-readout">0:00 / 0:00</span>
+            <button id="hudToggle" type="button" class="transport-button active" aria-pressed="true" title="Hide HUD">HUD</button>
             <button id="fullscreen" type="button" class="transport-button" title="Maximize video">Maximize</button>
           </div>
           </div>
@@ -232,6 +233,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   const player = el<HTMLDivElement>('#player');
   const playButton = el<HTMLButtonElement>('#playPause');
   const fullscreenButton = el<HTMLButtonElement>('#fullscreen');
+  const hudToggle = el<HTMLButtonElement>('#hudToggle');
   const timeline = el<HTMLInputElement>('#timeline');
   const timeReadout = el<HTMLSpanElement>('#timeReadout');
   const videoFile = el<HTMLInputElement>('#videoFile');
@@ -298,6 +300,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   let lastDuration = 0;
   let lastTimelineValue = -1;
   let wheel: WebHIDWheel | null = null;
+  let hudVisible = true;
   let wheelStrength = DEFAULT_WHEEL_STRENGTH;
   let wheelInvert = false;
   let connectingWheel = false;
@@ -325,6 +328,14 @@ export function initPlaybackApp(root: HTMLElement): void {
     leadValue.textContent = `${leadMs} ms`;
     offsetInput.value = String(offsetMs);
     leadInput.value = String(leadMs);
+  }
+
+  function applyHudVisibility(): void {
+    const hud = document.querySelector<HTMLElement>('.hud');
+    if (hud) hud.hidden = !hudVisible;
+    hudToggle.classList.toggle('active', hudVisible);
+    hudToggle.setAttribute('aria-pressed', String(hudVisible));
+    hudToggle.title = hudVisible ? 'Hide HUD' : 'Show HUD';
   }
 
   function showVideoEmpty(mode: 'video' | 'telemetry'): void {
@@ -743,7 +754,14 @@ export function initPlaybackApp(root: HTMLElement): void {
     try {
       localStorage.setItem(
         SETTINGS_KEY,
-        JSON.stringify({ version: SETTINGS_VERSION, offsetMs, leadMs, wheelStrength, wheelInvert }),
+        JSON.stringify({
+          version: SETTINGS_VERSION,
+          offsetMs,
+          leadMs,
+          wheelStrength,
+          wheelInvert,
+          hudVisible,
+        }),
       );
     } catch {
       // localStorage may be unavailable.
@@ -760,6 +778,7 @@ export function initPlaybackApp(root: HTMLElement): void {
         leadMs?: number;
         wheelStrength?: number;
         wheelInvert?: boolean;
+        hudVisible?: boolean;
       };
       offsetMs = clamp(Number(parsed.offsetMs) || 0, -2000, 2000);
       leadMs = clamp(Number(parsed.leadMs) || 0, -200, 400);
@@ -774,11 +793,13 @@ export function initPlaybackApp(root: HTMLElement): void {
         wheelStrength = DEFAULT_WHEEL_STRENGTH;
       }
       wheelInvert = Boolean(parsed.wheelInvert);
+      hudVisible = parsed.hudVisible !== false;
     } catch {
       offsetMs = 0;
       leadMs = 0;
       wheelStrength = DEFAULT_WHEEL_STRENGTH;
       wheelInvert = false;
+      hudVisible = true;
     }
   }
 
@@ -1085,6 +1106,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   wheelStrengthInput.value = String(Math.round(wheelStrength * 100));
   wheelStrengthValue.textContent = `${Math.round(wheelStrength * 100)}%`;
   wheelInvertInput.checked = wheelInvert;
+  applyHudVisibility();
   updateWheelUi();
   updateFullscreenUi();
   if (!document.fullscreenEnabled) {
@@ -1119,6 +1141,11 @@ export function initPlaybackApp(root: HTMLElement): void {
   loadSample.addEventListener('click', loadSampleTelemetry);
   playButton.addEventListener('click', () => void togglePlay());
   fullscreenButton.addEventListener('click', () => void toggleFullscreen());
+  hudToggle.addEventListener('click', () => {
+    hudVisible = !hudVisible;
+    applyHudVisibility();
+    saveSettings();
+  });
   document.addEventListener('fullscreenchange', updateFullscreenUi);
   player.addEventListener('pointermove', showFullscreenControls);
   player.addEventListener('pointerdown', showFullscreenControls);
@@ -1231,6 +1258,11 @@ export function initPlaybackApp(root: HTMLElement): void {
       nudgeOffset(-10);
     } else if (event.key === ']') {
       nudgeOffset(10);
+    } else if (event.key.toLowerCase() === 'h') {
+      event.preventDefault();
+      hudVisible = !hudVisible;
+      applyHudVisibility();
+      saveSettings();
     } else if (event.key.toLowerCase() === 'f') {
       event.preventDefault();
       void toggleFullscreen();

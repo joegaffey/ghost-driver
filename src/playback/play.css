@@ -210,6 +210,12 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.72rem;
 }
 
+.transport-button.active {
+  border-color: var(--accent);
+  color: var(--accent-2);
+  background: rgba(127, 227, 208, 0.12);
+}
+
 .player:fullscreen {
   display: flex;
   flex-direction: column;
