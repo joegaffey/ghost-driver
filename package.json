@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Experimental pure-browser sim racing video + telemetry playback that drives a force-feedback wheel.",
+  "description": "Experimental pure-browser racing and driving video + telemetry playback that drives a force-feedback wheel.",
   "engines": {
     "node": ">=20"
   },

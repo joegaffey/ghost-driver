@@ -30,8 +30,8 @@ app.innerHTML = `
       <p class="lede">Watch the lap. Feel the drive.</p>
       <p class="experiment-note">Experimental build: formats, controls and hardware support may change.</p>
       <p class="intro">
-        A pure-browser replay experience for sim racing. Load a video and a telemetry file,
-        connect a force-feedback wheel, and let an invisible driver move the wheel through the lap.
+        A pure-browser replay experience for racing and driving footage. Load a video and a telemetry file,
+        connect a force-feedback wheel, and let an invisible driver move the wheel through the lap or run.
       </p>
       <div class="actions">
         <a class="button" href="./play.html">Open playback</a>

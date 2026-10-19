@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Ghost Driver synchronizes a sim-racing video with a telemetry file and drives a force-feedback steering wheel to follow the recorded steering angle. The viewer watches the lap while the wheel moves as if an invisible driver is holding it.
+Ghost Driver synchronizes racing or driving video with a telemetry file and drives a force-feedback steering wheel to follow the recorded steering angle. The viewer watches the lap or run while the wheel moves as if an invisible driver is holding it. Sources can be simulator laps, real onboards, track days, karting, rally, or any driving footage with matching telemetry.
 
 The app is pure browser: video and telemetry come from files or URLs, and wheel control goes through WebHID. There is no backend, no game integration, and no live telemetry capture in v1.
 

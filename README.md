@@ -2,9 +2,13 @@
 
 > **Experimental prototype.** This project is under active research and development. Formats, controls, APIs, safety behavior and hardware support may change without notice. Do not treat it as production software.
 
-**A pure-browser replay experience for sim racing: watch a lap, replay its telemetry, and let a force-feedback wheel physically follow the drive.**
+**Open the player:** https://joegaffey.com/ghost-driver/play.html
+
+**A pure-browser replay experience for racing and driving footage: watch a lap or run, replay its telemetry, and let a force-feedback wheel physically follow the drive.**
 
 Ghost Driver is a static web app. You load a video (local file, direct URL or YouTube), load a telemetry file, connect a compatible wheel over WebHID, and the wheel moves with the recorded steering. The wheel behaves like a ghost driver.
+
+It is not limited to sim racing. Use it with simulator laps, real onboard footage, track days, karting, rally, or any driving video that has a matching telemetry file. The video and telemetry do not need to come from the same source; the offset and lead controls align them.
 
 > **Status: playback + wheel tracking.** Video (local, direct URL and YouTube), synthetic telemetry, the sync overlay, WebHID wheel connection, manual force tests and armed telemetry tracking work. Gain and safety tuning continue. The product and technical contract live in [SPEC.md](./SPEC.md).
 
