@@ -335,9 +335,10 @@ input[type="range"]::-moz-range-thumb {
   position: absolute;
   inset: 0;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) minmax(240px, 360px);
+  gap: 16px;
+  align-items: start;
   padding: 16px;
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(4, 7, 10, 0.4), transparent 32%, transparent 62%, rgba(4, 7, 10, 0.55));
@@ -399,13 +400,26 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 700;
 }
 
+.hud-graph {
+  width: 100%;
+  max-width: 720px;
+  height: 54px;
+  justify-self: center;
+}
+
+.hud-graph canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .hud-bottom {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+  grid-column: 3;
+  justify-self: end;
   display: grid;
   gap: 10px;
-  width: min(360px, 55%);
+  width: 100%;
+  max-width: 360px;
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
@@ -413,16 +427,6 @@ input[type="range"]::-moz-range-thumb {
   backdrop-filter: blur(8px);
 }
 
-.input-graph {
-  width: 100%;
-  height: 54px;
-}
-
-.input-graph canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
 
 .steer-row {
   display: grid;
@@ -788,7 +792,19 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .hud {
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 10px;
     padding: 10px;
+  }
+
+  .hud-graph {
+    display: none;
+  }
+
+  .hud-bottom {
+    grid-column: 2;
+    justify-self: stretch;
+    max-width: none;
   }
 
   .ghost-wheel-card {

@@ -73,14 +73,15 @@ export function initPlaybackApp(root: HTMLElement): void {
                 </div>
               </div>
 
+              <div class="hud-graph">
+                <canvas id="inputGraph" role="img" aria-label="Rolling driver inputs: steering, throttle and brake"></canvas>
+              </div>
+
               <div class="hud-bottom">
                 <div class="hud-row">
                   <div class="hud-stat"><span>Speed</span><strong id="hudSpeed">0</strong><em>km/h</em></div>
                   <div class="hud-stat"><span>Gear</span><strong id="hudGear">—</strong></div>
                   <div class="hud-stat"><span>RPM</span><strong id="hudRpm">0</strong></div>
-                </div>
-                <div class="input-graph">
-                  <canvas id="inputGraph" role="img" aria-label="Rolling driver inputs: steering, throttle and brake"></canvas>
                 </div>
                 <div class="steer-row">
                   <span>Steering</span>
