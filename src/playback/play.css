@@ -413,6 +413,17 @@ input[type="range"]::-moz-range-thumb {
   backdrop-filter: blur(8px);
 }
 
+.input-graph {
+  width: 100%;
+  height: 54px;
+}
+
+.input-graph canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .steer-row {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) 36px;
@@ -535,7 +546,7 @@ input[type="range"]::-moz-range-thumb {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--accent);
+  background: #9edc7a;
   transition: width 45ms linear;
 }
 

@@ -14,6 +14,7 @@ import {
   type TelemetryDocument,
   type TelemetryTrack,
 } from './telemetry';
+import { drawInputGraph } from './input-graph';
 import {
   TRACKING_INTERVAL_MS,
   TRACKING_RESEND_MS,
@@ -77,6 +78,9 @@ export function initPlaybackApp(root: HTMLElement): void {
                   <div class="hud-stat"><span>Speed</span><strong id="hudSpeed">0</strong><em>km/h</em></div>
                   <div class="hud-stat"><span>Gear</span><strong id="hudGear">—</strong></div>
                   <div class="hud-stat"><span>RPM</span><strong id="hudRpm">0</strong></div>
+                </div>
+                <div class="input-graph">
+                  <canvas id="inputGraph" role="img" aria-label="Rolling driver inputs: steering, throttle and brake"></canvas>
                 </div>
                 <div class="steer-row">
                   <span>Steering</span>
@@ -273,6 +277,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   const hudGear = el<HTMLElement>('#hudGear');
   const hudRpm = el<HTMLElement>('#hudRpm');
   const hudSteer = el<HTMLElement>('#hudSteer');
+  const inputGraph = el<HTMLCanvasElement>('#inputGraph');
   const throttleBar = el<HTMLDivElement>('#throttleBar');
   const brakeBar = el<HTMLDivElement>('#brakeBar');
   const throttleValue = el<HTMLElement>('#throttleValue');
@@ -1286,6 +1291,9 @@ export function initPlaybackApp(root: HTMLElement): void {
   const tick = (now: number): void => {
     updateWheelTracking(now);
     renderHud(stateAtPlayhead());
+    if (hudVisible) {
+      drawInputGraph(inputGraph, track, clock?.time() ?? 0, (offsetMs + leadMs) / 1000);
+    }
     updateTransport();
     requestAnimationFrame(tick);
   };
