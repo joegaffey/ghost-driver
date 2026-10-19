@@ -341,9 +341,10 @@ input[type="range"]::-moz-range-thumb {
   inset: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) minmax(240px, 360px);
+  grid-template-columns: 120px minmax(0, 1fr) minmax(240px, 360px);
   gap: 16px;
-  align-items: start;
+  align-content: start;
+  align-items: stretch;
   padding: 16px;
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(4, 7, 10, 0.24), transparent 32%, transparent 62%, rgba(4, 7, 10, 0.34));
@@ -351,11 +352,13 @@ input[type="range"]::-moz-range-thumb {
 
 .hud-top {
   display: flex;
+  align-items: stretch;
   justify-content: flex-start;
+  min-height: 0;
 }
 
 .ghost-wheel-card {
-  width: 150px;
+  width: 100%;
   padding: 9px 9px 7px;
   border: 1px solid rgba(127, 227, 208, 0.2);
   border-radius: 6px;
@@ -406,25 +409,25 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hud-graph {
+  position: relative;
   width: 100%;
-  max-width: 720px;
-  height: 100px;
   padding: 6px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 6px;
   background: rgba(7, 12, 17, 0.32);
-  justify-self: center;
 }
 
 .hud-graph canvas {
+  position: absolute;
+  inset: 6px;
   display: block;
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
 }
 
 .hud-bottom {
   grid-column: 3;
-  justify-self: end;
+  align-self: stretch;
   display: grid;
   gap: 10px;
   width: 100%;
