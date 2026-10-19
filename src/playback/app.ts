@@ -31,7 +31,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 const SETTINGS_KEY = 'ghost-driver.playback.settings';
-const DEFAULT_WHEEL_STRENGTH = 0.1;
+const SETTINGS_VERSION = 2;
+const DEFAULT_WHEEL_STRENGTH = 0.25;
 const MAX_WHEEL_STRENGTH = 0.5;
 
 export function initPlaybackApp(root: HTMLElement): void {
@@ -151,9 +152,9 @@ export function initPlaybackApp(root: HTMLElement): void {
             </dl>
             <div class="control-row">
               <label for="wheelStrength">Test strength</label>
-              <span id="wheelStrengthValue" class="value">10%</span>
+              <span id="wheelStrengthValue" class="value">25%</span>
             </div>
-            <input id="wheelStrength" type="range" min="0" max="50" step="1" value="10" />
+            <input id="wheelStrength" type="range" min="0" max="50" step="1" value="25" />
             <label class="check-row">
               <input id="wheelInvert" type="checkbox" />
               Invert force
@@ -164,11 +165,11 @@ export function initPlaybackApp(root: HTMLElement): void {
             </label>
             <div class="nudge-row">
               <button id="wheelCenter" type="button" disabled>Set center</button>
-              <button id="wheelTestLeft" type="button" disabled>Hold left</button>
-              <button id="wheelTestRight" type="button" disabled>Hold right</button>
+              <button id="wheelTestLeft" type="button" disabled>Test left</button>
+              <button id="wheelTestRight" type="button" disabled>Test right</button>
               <button id="wheelStop" type="button" disabled>Stop FFB</button>
             </div>
-            <p class="hint">Tracking is hands-off. Keep hands clear. If it pulls away from the target, enable Invert force.</p>
+            <p class="hint">Use Test left/right to confirm FFB. Start around 25%; raise toward 50% if needed. If tracking pulls away from the target, enable Invert force.</p>
           </section>
 
           <section class="panel">
@@ -283,6 +284,10 @@ export function initPlaybackApp(root: HTMLElement): void {
   let wheelCenterOffset = 0;
   let trackingArmed = false;
   let trackingForceActive = false;
+  let forceSending = false;
+  let pendingForce: number | null = null;
+  let pendingStop = false;
+  let forceIsOff = true;
   let lastTrackingAt = 0;
   let lastForceSentAt = 0;
   let lastSentForce = 0;
@@ -345,7 +350,9 @@ export function initPlaybackApp(root: HTMLElement): void {
     wheelTracking.textContent = trackingArmed
       ? trackingForceActive
         ? 'active'
-        : 'armed'
+        : clock?.playing()
+          ? 'armed'
+          : 'armed · press Play'
       : 'off';
 
     wheelCenter.disabled = !connected || typeof wheel?.state.rotation !== 'number';
@@ -389,18 +396,71 @@ export function initPlaybackApp(root: HTMLElement): void {
     wheelMarker.style.left = `${50 + fraction * 50}%`;
   }
 
+  async function flushWheelForce(): Promise<void> {
+    if (forceSending || !wheel?.isConnected) return;
+
+    if (pendingStop) {
+      pendingStop = false;
+      forceSending = true;
+      try {
+        await wheel.stopEffects();
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Could not stop wheel force.', 'error');
+      } finally {
+        forceSending = false;
+        if (pendingStop || pendingForce !== null) void flushWheelForce();
+      }
+      return;
+    }
+
+    if (pendingForce === null) return;
+
+    const value = pendingForce;
+    pendingForce = null;
+    forceSending = true;
+    try {
+      await wheel.setConstantForce(value);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not send force.', 'error');
+      if (trackingArmed) setTrackingArmed(false, 'Tracking stopped after a wheel error.');
+    } finally {
+      forceSending = false;
+      if (pendingStop || pendingForce !== null) void flushWheelForce();
+    }
+  }
+
+  function queueWheelForce(value: number): void {
+    if (!wheel?.isConnected || !wheel.ffbCaps?.any) return;
+    pendingForce = value;
+    pendingStop = false;
+    forceIsOff = false;
+    void flushWheelForce();
+  }
+
   function stopWheelForce(): void {
     if (!wheel?.isConnected) return;
-    void wheel.stopEffects().catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : 'Could not stop wheel force.', 'error');
-    });
+    if (forceIsOff && !pendingStop && !forceSending && pendingForce === null) return;
+    pendingStop = true;
+    pendingForce = null;
+    forceIsOff = true;
+    void flushWheelForce();
   }
 
   function setWheelTestForce(value: number): void {
-    if (!wheel?.isConnected || !wheel.ffbCaps?.any || !wheel.ffb) return;
-    void wheel.ffb.constant(value).catch((error: unknown) => {
-      setStatus(error instanceof Error ? error.message : 'Could not send force.', 'error');
-    });
+    if (!wheel?.isConnected || !wheel.ffbCaps?.any) return;
+    queueWheelForce(value);
+    setStatus(
+      `Test force ${value < 0 ? 'left' : 'right'} at ${Math.round(wheelStrength * 100)}% strength.`,
+    );
+  }
+
+  function resetWheelForceState(): void {
+    forceSending = false;
+    pendingForce = null;
+    pendingStop = false;
+    forceIsOff = true;
+    trackingForceActive = false;
+    lastSentForce = 0;
   }
 
   function stopTrackingForce(): void {
@@ -446,7 +506,7 @@ export function initPlaybackApp(root: HTMLElement): void {
     trackingArmed = armed;
     wheelArm.checked = armed;
     if (armed) {
-      setStatus('Wheel tracking armed. Keep hands clear.', 'ok');
+      setStatus('Wheel tracking armed. Press Play, and keep hands clear.', 'ok');
     } else {
       stopTrackingForce();
       setStatus(reason ?? 'Wheel tracking disarmed.');
@@ -522,14 +582,7 @@ export function initPlaybackApp(root: HTMLElement): void {
     lastForceSentAt = now;
     trackingForceActive = true;
     wheelTracking.textContent = 'active';
-
-    void wheel.setConstantForce(command).catch((error: unknown) => {
-      setStatus(
-        error instanceof Error ? error.message : 'Wheel tracking failed.',
-        'error',
-      );
-      setTrackingArmed(false, 'Tracking stopped after a wheel error.');
-    });
+    queueWheelForce(command);
   }
 
   function ensureWheel(): WebHIDWheel | null {
@@ -550,11 +603,24 @@ export function initPlaybackApp(root: HTMLElement): void {
         next.ffbStrength = wheelStrength;
         next.ffbInvert = wheelInvert;
         wheelCenterOffset = 0;
+        resetWheelForceState();
         updateWheelUi();
-        setStatus(`Wheel connected: ${next.name ?? 'unknown device'}.`, 'ok');
+        console.info('[ghost-driver] wheel connected', {
+          name: next.name,
+          profile: next.parserName,
+          ffbCaps: next.ffbCaps,
+          maxRotation: next.maxRotation,
+        });
+        setStatus(
+          next.ffbCaps?.any
+            ? `Wheel connected: ${next.name ?? 'unknown device'}. Set center, arm tracking, then press Play.`
+            : `Wheel connected: ${next.name ?? 'unknown device'}, but no force feedback was detected on this interface.`,
+          next.ffbCaps?.any ? 'ok' : 'error',
+        );
       });
       next.on('disconnect', () => {
         wheelCenterOffset = 0;
+        resetWheelForceState();
         updateWheelUi();
         setStatus('Wheel disconnected.');
       });
@@ -587,6 +653,7 @@ export function initPlaybackApp(root: HTMLElement): void {
         );
       } finally {
         wheelCenterOffset = 0;
+        resetWheelForceState();
         updateWheelUi();
       }
       return;
@@ -616,7 +683,10 @@ export function initPlaybackApp(root: HTMLElement): void {
       event.preventDefault();
       setWheelTestForce(value);
     };
-    const stop = (): void => stopWheelForce();
+    const stop = (): void => {
+      stopWheelForce();
+      if (!trackingArmed) setStatus('Test force stopped.');
+    };
 
     button.addEventListener('pointerdown', start);
     button.addEventListener('pointerup', stop);
@@ -638,7 +708,7 @@ export function initPlaybackApp(root: HTMLElement): void {
     try {
       localStorage.setItem(
         SETTINGS_KEY,
-        JSON.stringify({ offsetMs, leadMs, wheelStrength, wheelInvert }),
+        JSON.stringify({ version: SETTINGS_VERSION, offsetMs, leadMs, wheelStrength, wheelInvert }),
       );
     } catch {
       // localStorage may be unavailable.
@@ -650,6 +720,7 @@ export function initPlaybackApp(root: HTMLElement): void {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as {
+        version?: number;
         offsetMs?: number;
         leadMs?: number;
         wheelStrength?: number;
@@ -664,6 +735,9 @@ export function initPlaybackApp(root: HTMLElement): void {
         0,
         MAX_WHEEL_STRENGTH,
       );
+      if (parsed.version !== SETTINGS_VERSION && Math.abs(wheelStrength - 0.1) < 0.001) {
+        wheelStrength = DEFAULT_WHEEL_STRENGTH;
+      }
       wheelInvert = Boolean(parsed.wheelInvert);
     } catch {
       offsetMs = 0;
@@ -993,6 +1067,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   hid?.addEventListener('disconnect', () => {
     if (wheel && !wheel.isConnected) {
       wheelCenterOffset = 0;
+      resetWheelForceState();
       updateWheelUi();
       setStatus('Wheel disconnected.');
     }
