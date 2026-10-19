@@ -149,6 +149,9 @@ export function initPlaybackApp(root: HTMLElement): void {
               <dt>Angle</dt><dd id="wheelAngle">—</dd>
               <dt>FFB</dt><dd id="wheelFfb">—</dd>
               <dt>Tracking</dt><dd id="wheelTracking">off</dd>
+              <dt>Target</dt><dd id="wheelTarget">—</dd>
+              <dt>Error</dt><dd id="wheelError">—</dd>
+              <dt>Command</dt><dd id="wheelCommand">—</dd>
             </dl>
             <div class="control-row">
               <label for="wheelStrength">Test strength</label>
@@ -237,6 +240,9 @@ export function initPlaybackApp(root: HTMLElement): void {
   const wheelAngle = el<HTMLElement>('#wheelAngle');
   const wheelFfb = el<HTMLElement>('#wheelFfb');
   const wheelTracking = el<HTMLElement>('#wheelTracking');
+  const wheelTarget = el<HTMLElement>('#wheelTarget');
+  const wheelError = el<HTMLElement>('#wheelError');
+  const wheelCommand = el<HTMLElement>('#wheelCommand');
   const wheelArm = el<HTMLInputElement>('#wheelArm');
   const wheelStrengthInput = el<HTMLInputElement>('#wheelStrength');
   const wheelStrengthValue = el<HTMLSpanElement>('#wheelStrengthValue');
@@ -354,6 +360,12 @@ export function initPlaybackApp(root: HTMLElement): void {
           ? 'armed'
           : 'armed · press Play'
       : 'off';
+
+    if (!trackingArmed) {
+      wheelTarget.textContent = '—';
+      wheelError.textContent = '—';
+      wheelCommand.textContent = '—';
+    }
 
     wheelCenter.disabled = !connected || typeof wheel?.state.rotation !== 'number';
     wheelTestLeft.disabled = !canForce || trackingArmed;
@@ -551,11 +563,15 @@ export function initPlaybackApp(root: HTMLElement): void {
     ) {
       stopTrackingForce();
       wheelTracking.textContent = trackingArmed ? 'waiting' : 'off';
+      wheelTarget.textContent = '—';
+      wheelError.textContent = '—';
+      wheelCommand.textContent = '—';
       return;
     }
 
     const range = wheel.maxRotation;
     const target = clamp(sample.steer, -range / 2, range / 2);
+    const error = target - actual;
 
     if (dt > 0 && lastActualAngle !== undefined) {
       const rawRate = (actual - lastActualAngle) / dt;
@@ -564,6 +580,10 @@ export function initPlaybackApp(root: HTMLElement): void {
     lastActualAngle = actual;
 
     const command = trackingForce(target, actual, actualRate);
+
+    wheelTarget.textContent = `${Math.round(target)}°`;
+    wheelError.textContent = `${Math.round(error)}°`;
+    wheelCommand.textContent = command.toFixed(2);
 
     if (command === 0) {
       if (trackingForceActive) {
