@@ -46,6 +46,7 @@ export function initPlaybackApp(root: HTMLElement): void {
 
       <main class="play-main">
         <section class="stage">
+          <div id="player" class="player">
           <div id="videoFrame" class="video-frame">
             <div id="videoHost" class="video-host"></div>
             <div id="videoEmpty" class="video-empty">
@@ -101,6 +102,8 @@ export function initPlaybackApp(root: HTMLElement): void {
             <button id="playPause" class="primary" type="button">Play</button>
             <input id="timeline" class="timeline" type="range" min="0" max="1" step="0.01" value="0" />
             <span id="timeReadout" class="time-readout">0:00 / 0:00</span>
+            <button id="fullscreen" type="button" class="transport-button" title="Maximize video">Maximize</button>
+          </div>
           </div>
 
           <div class="stage-panels">
@@ -221,7 +224,9 @@ export function initPlaybackApp(root: HTMLElement): void {
   const videoHost = el<HTMLDivElement>('#videoHost');
   const videoEmpty = el<HTMLDivElement>('#videoEmpty');
   const statusEl = el<HTMLSpanElement>('#status');
+  const player = el<HTMLDivElement>('#player');
   const playButton = el<HTMLButtonElement>('#playPause');
+  const fullscreenButton = el<HTMLButtonElement>('#fullscreen');
   const timeline = el<HTMLInputElement>('#timeline');
   const timeReadout = el<HTMLSpanElement>('#timeReadout');
   const videoFile = el<HTMLInputElement>('#videoFile');
@@ -977,6 +982,26 @@ export function initPlaybackApp(root: HTMLElement): void {
     loadTelemetryDocument(buildSyntheticTelemetry(120, 60));
   }
 
+  function updateFullscreenUi(): void {
+    const active = document.fullscreenElement === player;
+    fullscreenButton.textContent = active ? 'Restore' : 'Maximize';
+    fullscreenButton.title = active ? 'Exit fullscreen' : 'Maximize video';
+    player.classList.toggle('is-fullscreen', active);
+  }
+
+  async function toggleFullscreen(): Promise<void> {
+    if (!document.fullscreenEnabled) {
+      setStatus('Fullscreen is not available in this browser.', 'error');
+      return;
+    }
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await player.requestFullscreen();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not toggle fullscreen.', 'error');
+    }
+  }
+
   async function togglePlay(): Promise<void> {
     if (!clock) {
       if (!track) {
@@ -1026,6 +1051,11 @@ export function initPlaybackApp(root: HTMLElement): void {
   wheelStrengthValue.textContent = `${Math.round(wheelStrength * 100)}%`;
   wheelInvertInput.checked = wheelInvert;
   updateWheelUi();
+  updateFullscreenUi();
+  if (!document.fullscreenEnabled) {
+    fullscreenButton.disabled = true;
+    fullscreenButton.title = 'Fullscreen is not available in this browser';
+  }
 
   videoFile.addEventListener('change', () => {
     const file = videoFile.files?.[0];
@@ -1053,6 +1083,8 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   loadSample.addEventListener('click', loadSampleTelemetry);
   playButton.addEventListener('click', () => void togglePlay());
+  fullscreenButton.addEventListener('click', () => void toggleFullscreen());
+  document.addEventListener('fullscreenchange', updateFullscreenUi);
 
   wheelConnect.addEventListener('click', () => void toggleWheelConnection());
 
@@ -1160,6 +1192,9 @@ export function initPlaybackApp(root: HTMLElement): void {
       nudgeOffset(-10);
     } else if (event.key === ']') {
       nudgeOffset(10);
+    } else if (event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      void toggleFullscreen();
     }
   });
 
