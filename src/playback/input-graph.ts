@@ -3,9 +3,9 @@ import type { TelemetryTrack } from './telemetry';
 export const INPUT_GRAPH_WINDOW_SECONDS = 6;
 const SAMPLE_HZ = 30;
 
-const STEER_COLOR = '#7fe3d0';
-const THROTTLE_COLOR = '#9edc7a';
-const BRAKE_COLOR = '#ffb36b';
+const STEER_COLOR = '#3b82f6';
+const THROTTLE_COLOR = '#2e9e5b';
+const BRAKE_COLOR = '#d94b4b';
 
 interface GraphPoint {
   steer: number;
@@ -35,7 +35,7 @@ function drawLine(
     else ctx.lineTo(x, y);
   }
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.stroke();

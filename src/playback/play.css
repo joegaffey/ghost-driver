@@ -341,7 +341,7 @@ input[type="range"]::-moz-range-thumb {
   align-items: start;
   padding: 16px;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(4, 7, 10, 0.4), transparent 32%, transparent 62%, rgba(4, 7, 10, 0.55));
+  background: linear-gradient(to bottom, rgba(4, 7, 10, 0.24), transparent 32%, transparent 62%, rgba(4, 7, 10, 0.34));
 }
 
 .hud-top {
@@ -354,7 +354,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 9px 9px 7px;
   border: 1px solid rgba(127, 227, 208, 0.2);
   border-radius: 6px;
-  background: rgba(7, 12, 17, 0.72);
+  background: rgba(7, 12, 17, 0.35);
   backdrop-filter: blur(8px);
   text-align: center;
 }
@@ -403,7 +403,11 @@ input[type="range"]::-moz-range-thumb {
 .hud-graph {
   width: 100%;
   max-width: 720px;
-  height: 54px;
+  height: 64px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  background: rgba(7, 12, 17, 0.32);
   justify-self: center;
 }
 
@@ -423,7 +427,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
-  background: rgba(7, 12, 17, 0.55);
+  background: rgba(7, 12, 17, 0.3);
   backdrop-filter: blur(8px);
 }
 
@@ -500,7 +504,7 @@ input[type="range"]::-moz-range-thumb {
   padding: 6px 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 4px;
-  background: rgba(7, 12, 17, 0.7);
+  background: rgba(7, 12, 17, 0.4);
   backdrop-filter: blur(6px);
 }
 
@@ -550,12 +554,12 @@ input[type="range"]::-moz-range-thumb {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: #9edc7a;
+  background: #2e9e5b;
   transition: width 45ms linear;
 }
 
 .pedal .bar.brake .fill {
-  background: var(--danger);
+  background: #d94b4b;
 }
 
 .pedal em {
