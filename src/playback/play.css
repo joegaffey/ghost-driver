@@ -211,19 +211,6 @@ input[type="range"]::-moz-range-thumb {
   background: none;
 }
 
-.player:fullscreen .hud-bottom {
-  position: absolute;
-  top: auto;
-  right: auto;
-  bottom: 104px;
-  left: 18px;
-  width: min(560px, 60vw);
-}
-
-.player:fullscreen .hud-row {
-  justify-content: flex-start;
-}
-
 .player:fullscreen .transport {
   position: absolute;
   right: 0;
@@ -325,7 +312,7 @@ input[type="range"]::-moz-range-thumb {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 16px;
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(4, 7, 10, 0.4), transparent 32%, transparent 62%, rgba(4, 7, 10, 0.55));
@@ -388,14 +375,23 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hud-bottom {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   display: grid;
-  gap: 9px;
+  gap: 8px;
+  width: min(360px, 55%);
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(7, 12, 17, 0.55);
+  backdrop-filter: blur(8px);
 }
 
 .steer-track {
   position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: none;
   height: 8px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
@@ -434,16 +430,17 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .hud-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  flex-wrap: wrap;
 }
 
 .hud-stat {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 5px;
-  min-width: 86px;
+  min-width: 0;
   padding: 6px 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9px;
@@ -472,9 +469,9 @@ input[type="range"]::-moz-range-thumb {
 
 .pedal-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  max-width: 560px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  max-width: none;
 }
 
 .pedal {

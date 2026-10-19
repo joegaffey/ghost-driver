@@ -73,15 +73,15 @@ export function initPlaybackApp(root: HTMLElement): void {
               </div>
 
               <div class="hud-bottom">
-                <div class="steer-track">
-                  <span class="steer-center"></span>
-                  <span id="steerMarker" class="steer-marker"></span>
-                  <span id="wheelMarker" class="steer-marker wheel-marker" hidden></span>
-                </div>
                 <div class="hud-row">
                   <div class="hud-stat"><span>Speed</span><strong id="hudSpeed">0</strong><em>km/h</em></div>
                   <div class="hud-stat"><span>Gear</span><strong id="hudGear">—</strong></div>
                   <div class="hud-stat"><span>RPM</span><strong id="hudRpm">0</strong></div>
+                </div>
+                <div class="steer-track">
+                  <span class="steer-center"></span>
+                  <span id="steerMarker" class="steer-marker"></span>
+                  <span id="wheelMarker" class="steer-marker wheel-marker" hidden></span>
                 </div>
                 <div class="pedal-row">
                   <div class="pedal">
