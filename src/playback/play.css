@@ -213,21 +213,15 @@ input[type="range"]::-moz-range-thumb {
 
 .player:fullscreen .hud-bottom {
   position: absolute;
-  top: 18px;
-  right: 18px;
-  bottom: auto;
-  left: auto;
-  width: auto;
-  max-width: 60vw;
+  top: auto;
+  right: auto;
+  bottom: 104px;
+  left: 18px;
+  width: min(560px, 60vw);
 }
 
 .player:fullscreen .hud-row {
-  justify-content: flex-end;
-}
-
-.player:fullscreen .steer-track,
-.player:fullscreen .pedal-row {
-  display: none;
+  justify-content: flex-start;
 }
 
 .player:fullscreen .transport {
