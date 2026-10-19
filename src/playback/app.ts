@@ -78,10 +78,14 @@ export function initPlaybackApp(root: HTMLElement): void {
                   <div class="hud-stat"><span>Gear</span><strong id="hudGear">—</strong></div>
                   <div class="hud-stat"><span>RPM</span><strong id="hudRpm">0</strong></div>
                 </div>
-                <div class="steer-track">
-                  <span class="steer-center"></span>
-                  <span id="steerMarker" class="steer-marker"></span>
-                  <span id="wheelMarker" class="steer-marker wheel-marker" hidden></span>
+                <div class="steer-row">
+                  <span>Steering</span>
+                  <div class="steer-track">
+                    <span class="steer-center"></span>
+                    <span id="steerMarker" class="steer-marker"></span>
+                    <span id="wheelMarker" class="steer-marker wheel-marker" hidden></span>
+                  </div>
+                  <em id="hudSteer">0°</em>
                 </div>
                 <div class="pedal-row">
                   <div class="pedal">
@@ -266,6 +270,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   const hudSpeed = el<HTMLElement>('#hudSpeed');
   const hudGear = el<HTMLElement>('#hudGear');
   const hudRpm = el<HTMLElement>('#hudRpm');
+  const hudSteer = el<HTMLElement>('#hudSteer');
   const throttleBar = el<HTMLDivElement>('#throttleBar');
   const brakeBar = el<HTMLDivElement>('#brakeBar');
   const throttleValue = el<HTMLElement>('#throttleValue');
@@ -791,6 +796,7 @@ export function initPlaybackApp(root: HTMLElement): void {
 
     wheelRim.setAttribute('transform', `rotate(${clampedSteer.toFixed(2)} 100 100)`);
     steerAngle.textContent = `${Math.round(clampedSteer)}°`;
+    hudSteer.textContent = `${Math.round(steer)}°`;
     steerMarker.style.left = `${50 + clamp(fraction, -1, 1) * 50}%`;
 
     hudSpeed.textContent = String(Math.round(sample?.speed ?? 0));
