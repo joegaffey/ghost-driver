@@ -102,6 +102,42 @@ export function initPlaybackApp(root: HTMLElement): void {
             <input id="timeline" class="timeline" type="range" min="0" max="1" step="0.01" value="0" />
             <span id="timeReadout" class="time-readout">0:00 / 0:00</span>
           </div>
+
+          <div class="stage-panels">
+            <section class="panel">
+              <h2>Sync</h2>
+              <div class="control-row">
+                <label for="offset">Offset</label>
+                <span id="offsetValue" class="value">0 ms</span>
+              </div>
+              <input id="offset" type="range" min="-2000" max="2000" step="10" value="0" />
+              <div class="nudge-row">
+                <button type="button" data-nudge="-100">−100</button>
+                <button type="button" data-nudge="-10">−10</button>
+                <button type="button" data-nudge="10">+10</button>
+                <button type="button" data-nudge="100">+100</button>
+              </div>
+              <div class="control-row">
+                <label for="lead">FFB lead</label>
+                <span id="leadValue" class="value">0 ms</span>
+              </div>
+              <input id="lead" type="range" min="-200" max="400" step="10" value="0" />
+              <p class="hint">Offset shifts telemetry against video. Lead is look-ahead for wheel latency.</p>
+            </section>
+            <section class="panel">
+              <h2>At the playhead</h2>
+              <dl class="readout">
+                <dt>Time</dt><dd id="readTime">—</dd>
+                <dt>Steer</dt><dd id="readSteer">—</dd>
+                <dt>Throttle</dt><dd id="readThrottle">—</dd>
+                <dt>Brake</dt><dd id="readBrake">—</dd>
+                <dt>Speed</dt><dd id="readSpeed">—</dd>
+                <dt>Gear</dt><dd id="readGear">—</dd>
+                <dt>RPM</dt><dd id="readRpm">—</dd>
+                <dt>Sample</dt><dd id="readState">—</dd>
+              </dl>
+            </section>
+          </div>
         </section>
 
         <aside class="side">
@@ -175,40 +211,7 @@ export function initPlaybackApp(root: HTMLElement): void {
             <p class="hint">Use Test left/right to confirm FFB. Start around 25%; raise toward 50% if needed. If tracking pulls away from the target, enable Invert force.</p>
           </section>
 
-          <section class="panel">
-            <h2>Sync</h2>
-            <div class="control-row">
-              <label for="offset">Offset</label>
-              <span id="offsetValue" class="value">0 ms</span>
-            </div>
-            <input id="offset" type="range" min="-2000" max="2000" step="10" value="0" />
-            <div class="nudge-row">
-              <button type="button" data-nudge="-100">−100</button>
-              <button type="button" data-nudge="-10">−10</button>
-              <button type="button" data-nudge="10">+10</button>
-              <button type="button" data-nudge="100">+100</button>
-            </div>
-            <div class="control-row">
-              <label for="lead">FFB lead</label>
-              <span id="leadValue" class="value">0 ms</span>
-            </div>
-            <input id="lead" type="range" min="-200" max="400" step="10" value="0" />
-            <p class="hint">Offset shifts telemetry against video. Lead is look-ahead for wheel latency.</p>
-          </section>
 
-          <section class="panel">
-            <h2>At the playhead</h2>
-            <dl class="readout">
-              <dt>Time</dt><dd id="readTime">—</dd>
-              <dt>Steer</dt><dd id="readSteer">—</dd>
-              <dt>Throttle</dt><dd id="readThrottle">—</dd>
-              <dt>Brake</dt><dd id="readBrake">—</dd>
-              <dt>Speed</dt><dd id="readSpeed">—</dd>
-              <dt>Gear</dt><dd id="readGear">—</dd>
-              <dt>RPM</dt><dd id="readRpm">—</dd>
-              <dt>Sample</dt><dd id="readState">—</dd>
-            </dl>
-          </section>
 
         </aside>
       </main>
