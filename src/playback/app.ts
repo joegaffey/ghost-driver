@@ -1,3 +1,4 @@
+import WebHIDWheel, { type WheelState } from 'webhid-wheel';
 import {
   HtmlVideoClock,
   YouTubeClock,
@@ -24,13 +25,15 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 const SETTINGS_KEY = 'ghost-driver.playback.settings';
+const DEFAULT_WHEEL_STRENGTH = 0.1;
+const MAX_WHEEL_STRENGTH = 0.5;
 
 export function initPlaybackApp(root: HTMLElement): void {
   root.innerHTML = `
     <div class="play-shell">
       <header class="play-header">
         <a class="brand" href="./">Ghost Driver</a>
-        <span class="play-badge">experimental · no FFB yet</span>
+        <span class="play-badge">experimental · wheel test</span>
         <span id="status" class="status">Load a video to begin.</span>
       </header>
 
@@ -64,6 +67,7 @@ export function initPlaybackApp(root: HTMLElement): void {
                 <div class="steer-track">
                   <span class="steer-center"></span>
                   <span id="steerMarker" class="steer-marker"></span>
+                  <span id="wheelMarker" class="steer-marker wheel-marker" hidden></span>
                 </div>
                 <div class="hud-row">
                   <div class="hud-stat"><span>Speed</span><strong id="hudSpeed">0</strong><em>km/h</em></div>
@@ -129,6 +133,33 @@ export function initPlaybackApp(root: HTMLElement): void {
           </section>
 
           <section class="panel">
+            <h2>Wheel</h2>
+            <button id="wheelConnect" type="button">Connect wheel</button>
+            <p id="wheelInfo" class="hint">No wheel connected. WebHID requires desktop Chromium over HTTPS or localhost.</p>
+            <dl class="readout wheel-readout">
+              <dt>Device</dt><dd id="wheelDevice">—</dd>
+              <dt>Profile</dt><dd id="wheelProfile">—</dd>
+              <dt>Angle</dt><dd id="wheelAngle">—</dd>
+              <dt>FFB</dt><dd id="wheelFfb">—</dd>
+            </dl>
+            <div class="control-row">
+              <label for="wheelStrength">Test strength</label>
+              <span id="wheelStrengthValue" class="value">10%</span>
+            </div>
+            <input id="wheelStrength" type="range" min="0" max="50" step="1" value="10" />
+            <label class="check-row">
+              <input id="wheelInvert" type="checkbox" />
+              Invert force
+            </label>
+            <div class="nudge-row">
+              <button id="wheelTestLeft" type="button" disabled>Hold left</button>
+              <button id="wheelTestRight" type="button" disabled>Hold right</button>
+              <button id="wheelStop" type="button" disabled>Stop FFB</button>
+            </div>
+            <p class="hint">Momentary test only. Hands-off tracking is not enabled yet.</p>
+          </section>
+
+          <section class="panel">
             <h2>Sync</h2>
             <div class="control-row">
               <label for="offset">Offset</label>
@@ -163,10 +194,6 @@ export function initPlaybackApp(root: HTMLElement): void {
             </dl>
           </section>
 
-          <section class="panel muted">
-            <h2>Force feedback</h2>
-            <p>FFB is not connected yet. Playback, overlay and sync can be tested now; WebHID/FFBeast comes next.</p>
-          </section>
         </aside>
       </main>
     </div>
@@ -190,8 +217,21 @@ export function initPlaybackApp(root: HTMLElement): void {
   const offsetValue = el<HTMLSpanElement>('#offsetValue');
   const leadInput = el<HTMLInputElement>('#lead');
   const leadValue = el<HTMLSpanElement>('#leadValue');
+  const wheelConnect = el<HTMLButtonElement>('#wheelConnect');
+  const wheelInfo = el<HTMLParagraphElement>('#wheelInfo');
+  const wheelDevice = el<HTMLElement>('#wheelDevice');
+  const wheelProfile = el<HTMLElement>('#wheelProfile');
+  const wheelAngle = el<HTMLElement>('#wheelAngle');
+  const wheelFfb = el<HTMLElement>('#wheelFfb');
+  const wheelStrengthInput = el<HTMLInputElement>('#wheelStrength');
+  const wheelStrengthValue = el<HTMLSpanElement>('#wheelStrengthValue');
+  const wheelInvertInput = el<HTMLInputElement>('#wheelInvert');
+  const wheelTestLeft = el<HTMLButtonElement>('#wheelTestLeft');
+  const wheelTestRight = el<HTMLButtonElement>('#wheelTestRight');
+  const wheelStop = el<HTMLButtonElement>('#wheelStop');
   const steerAngle = el<HTMLDivElement>('#steerAngle');
   const steerMarker = el<HTMLSpanElement>('#steerMarker');
+  const wheelMarker = el<HTMLSpanElement>('#wheelMarker');
   const hudSpeed = el<HTMLElement>('#hudSpeed');
   const hudGear = el<HTMLElement>('#hudGear');
   const hudRpm = el<HTMLElement>('#hudRpm');
@@ -221,6 +261,10 @@ export function initPlaybackApp(root: HTMLElement): void {
   let scrubbing = false;
   let lastDuration = 0;
   let lastTimelineValue = -1;
+  let wheel: WebHIDWheel | null = null;
+  let wheelStrength = DEFAULT_WHEEL_STRENGTH;
+  let wheelInvert = false;
+  let connectingWheel = false;
 
   function setStatus(message: string, tone: 'info' | 'ok' | 'error' = 'info'): void {
     statusEl.textContent = message;
@@ -234,9 +278,189 @@ export function initPlaybackApp(root: HTMLElement): void {
     leadInput.value = String(leadMs);
   }
 
+  function webHidAvailable(): boolean {
+    return typeof navigator !== 'undefined' && 'hid' in navigator;
+  }
+
+  function wheelFfbLabel(): string {
+    if (!wheel?.isConnected) return '—';
+    if (wheel.ffbCaps?.constant) return 'constant';
+    if (wheel.ffbCaps?.periodic) return 'periodic';
+    if (wheel.ffbCaps?.any) return 'yes';
+    return 'none';
+  }
+
+  function updateWheelUi(): void {
+    const connected = Boolean(wheel?.isConnected);
+    const supported = webHidAvailable();
+
+    wheelConnect.textContent = connectingWheel
+      ? 'Connecting…'
+      : connected
+        ? 'Disconnect wheel'
+        : 'Connect wheel';
+    wheelConnect.disabled = connectingWheel || !supported;
+
+    const canForce = connected && Boolean(wheel?.ffbCaps?.any);
+    wheelTestLeft.disabled = !canForce;
+    wheelTestRight.disabled = !canForce;
+    wheelStop.disabled = !canForce;
+
+    wheelDevice.textContent = connected ? (wheel?.name ?? 'Unknown wheel') : '—';
+    wheelProfile.textContent = connected ? (wheel?.parserName ?? '—') : '—';
+    wheelFfb.textContent = wheelFfbLabel();
+
+    if (connected) {
+      const range = wheel?.maxRotation ?? 900;
+      wheelInfo.textContent = `${wheel?.name ?? 'Wheel'} · ${range}° range · ${wheelFfbLabel()}`;
+      return;
+    }
+
+    wheelAngle.textContent = '—';
+    wheelMarker.hidden = true;
+    wheelInfo.textContent = supported
+      ? 'No wheel connected. WebHID requires desktop Chromium over HTTPS or localhost.'
+      : 'WebHID is not available in this browser. Use desktop Chromium over HTTPS or localhost.';
+  }
+
+  function updateWheelInput(state: WheelState): void {
+    const rotation =
+      typeof state.rotation === 'number' && Number.isFinite(state.rotation)
+        ? state.rotation
+        : undefined;
+
+    if (rotation === undefined) {
+      wheelAngle.textContent = '—';
+      wheelMarker.hidden = true;
+      return;
+    }
+
+    wheelAngle.textContent = `${Math.round(rotation)}°`;
+    const range = wheel?.maxRotation ?? 900;
+    const fraction = clamp(rotation / (range / 2), -1, 1);
+    wheelMarker.hidden = false;
+    wheelMarker.style.left = `${50 + fraction * 50}%`;
+  }
+
+  function stopWheelForce(): void {
+    if (!wheel?.isConnected) return;
+    void wheel.stopEffects().catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : 'Could not stop wheel force.', 'error');
+    });
+  }
+
+  function setWheelTestForce(value: number): void {
+    if (!wheel?.isConnected || !wheel.ffbCaps?.any || !wheel.ffb) return;
+    void wheel.ffb.constant(value).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : 'Could not send force.', 'error');
+    });
+  }
+
+  function ensureWheel(): WebHIDWheel | null {
+    if (wheel) return wheel;
+    if (!webHidAvailable()) {
+      updateWheelUi();
+      setStatus('WebHID is not available in this browser.', 'error');
+      return null;
+    }
+
+    try {
+      const next = new WebHIDWheel({
+        ffbStrength: wheelStrength,
+        ffbInvert: wheelInvert,
+        deadzone: 0.01,
+      });
+      next.on('connect', () => {
+        next.ffbStrength = wheelStrength;
+        next.ffbInvert = wheelInvert;
+        updateWheelUi();
+        setStatus(`Wheel connected: ${next.name ?? 'unknown device'}.`, 'ok');
+      });
+      next.on('disconnect', () => {
+        updateWheelUi();
+        setStatus('Wheel disconnected.');
+      });
+      next.on('input', (state) => updateWheelInput(state));
+      next.on('error', (error) => {
+        setStatus(error instanceof Error ? error.message : 'Wheel error.', 'error');
+      });
+      wheel = next;
+      return next;
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Could not initialize the wheel.',
+        'error',
+      );
+      return null;
+    }
+  }
+
+  async function toggleWheelConnection(): Promise<void> {
+    if (connectingWheel) return;
+
+    if (wheel?.isConnected) {
+      stopWheelForce();
+      try {
+        await wheel.disconnect();
+      } catch (error) {
+        setStatus(
+          error instanceof Error ? error.message : 'Could not disconnect the wheel.',
+          'error',
+        );
+      } finally {
+        updateWheelUi();
+      }
+      return;
+    }
+
+    const instance = ensureWheel();
+    if (!instance) return;
+
+    connectingWheel = true;
+    updateWheelUi();
+    try {
+      const device = await instance.connect();
+      if (!device) setStatus('No wheel selected.');
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Could not connect the wheel.',
+        'error',
+      );
+    } finally {
+      connectingWheel = false;
+      updateWheelUi();
+    }
+  }
+
+  function bindHoldForce(button: HTMLButtonElement, value: number): void {
+    const start = (event: Event): void => {
+      event.preventDefault();
+      setWheelTestForce(value);
+    };
+    const stop = (): void => stopWheelForce();
+
+    button.addEventListener('pointerdown', start);
+    button.addEventListener('pointerup', stop);
+    button.addEventListener('pointerleave', stop);
+    button.addEventListener('pointercancel', stop);
+    button.addEventListener('keydown', (event) => {
+      if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) start(event);
+    });
+    button.addEventListener('keyup', (event) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        stop();
+      }
+    });
+    button.addEventListener('blur', stop);
+  }
+
   function saveSettings(): void {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ offsetMs, leadMs }));
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ offsetMs, leadMs, wheelStrength, wheelInvert }),
+      );
     } catch {
       // localStorage may be unavailable.
     }
@@ -246,12 +470,27 @@ export function initPlaybackApp(root: HTMLElement): void {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { offsetMs?: number; leadMs?: number };
+      const parsed = JSON.parse(raw) as {
+        offsetMs?: number;
+        leadMs?: number;
+        wheelStrength?: number;
+        wheelInvert?: boolean;
+      };
       offsetMs = clamp(Number(parsed.offsetMs) || 0, -2000, 2000);
       leadMs = clamp(Number(parsed.leadMs) || 0, -200, 400);
+      wheelStrength = clamp(
+        Number.isFinite(Number(parsed.wheelStrength))
+          ? Number(parsed.wheelStrength)
+          : DEFAULT_WHEEL_STRENGTH,
+        0,
+        MAX_WHEEL_STRENGTH,
+      );
+      wheelInvert = Boolean(parsed.wheelInvert);
     } catch {
       offsetMs = 0;
       leadMs = 0;
+      wheelStrength = DEFAULT_WHEEL_STRENGTH;
+      wheelInvert = false;
     }
   }
 
@@ -469,6 +708,10 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   loadSettings();
   updateSyncLabels();
+  wheelStrengthInput.value = String(Math.round(wheelStrength * 100));
+  wheelStrengthValue.textContent = `${Math.round(wheelStrength * 100)}%`;
+  wheelInvertInput.checked = wheelInvert;
+  updateWheelUi();
 
   videoFile.addEventListener('change', () => {
     const file = videoFile.files?.[0];
@@ -496,6 +739,38 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   loadSample.addEventListener('click', loadSampleTelemetry);
   playButton.addEventListener('click', () => void togglePlay());
+
+  wheelConnect.addEventListener('click', () => void toggleWheelConnection());
+
+  wheelStrengthInput.addEventListener('input', () => {
+    wheelStrength = clamp(Number(wheelStrengthInput.value) / 100, 0, MAX_WHEEL_STRENGTH);
+    wheelStrengthValue.textContent = `${Math.round(wheelStrength * 100)}%`;
+    if (wheel) wheel.ffbStrength = wheelStrength;
+    saveSettings();
+  });
+
+  wheelInvertInput.addEventListener('change', () => {
+    wheelInvert = wheelInvertInput.checked;
+    if (wheel) wheel.ffbInvert = wheelInvert;
+    saveSettings();
+  });
+
+  bindHoldForce(wheelTestLeft, -1);
+  bindHoldForce(wheelTestRight, 1);
+  wheelStop.addEventListener('click', stopWheelForce);
+
+  const hid = (navigator as Navigator & { hid?: EventTarget }).hid;
+  hid?.addEventListener('disconnect', () => {
+    if (wheel && !wheel.isConnected) {
+      updateWheelUi();
+      setStatus('Wheel disconnected.');
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopWheelForce();
+  });
+  window.addEventListener('blur', stopWheelForce);
 
   timeline.addEventListener('pointerdown', () => {
     scrubbing = true;
@@ -556,6 +831,8 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   window.addEventListener('beforeunload', () => {
     if (objectUrl) URL.revokeObjectURL(objectUrl);
+    stopWheelForce();
+    void wheel?.disconnect();
     clock?.destroy();
   });
 

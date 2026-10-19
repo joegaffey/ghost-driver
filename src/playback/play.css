@@ -344,6 +344,14 @@ input[type="range"]::-moz-range-thumb {
   transition: left 45ms linear;
 }
 
+.steer-marker.wheel-marker {
+  width: 13px;
+  height: 13px;
+  background: #ffcb99;
+  box-shadow: 0 0 14px rgba(255, 179, 107, 0.8);
+  z-index: 2;
+}
+
 .hud-row {
   display: flex;
   gap: 8px;
@@ -536,6 +544,19 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.78rem;
 }
 
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.check-row input {
+  accent-color: var(--accent);
+}
+
 .value {
   color: var(--accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -567,6 +588,10 @@ input[type="range"]::-moz-range-thumb {
   gap: 5px 12px;
   margin: 0;
   font-size: 0.76rem;
+}
+
+.wheel-readout {
+  margin-top: 10px;
 }
 
 .readout dt {
