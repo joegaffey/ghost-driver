@@ -254,8 +254,7 @@ input[type="range"]::-moz-range-thumb {
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.player:fullscreen.controls-visible .transport,
-.player:fullscreen .transport:focus-within {
+.player:fullscreen.controls-visible .transport {
   opacity: 1;
   pointer-events: auto;
   transform: none;

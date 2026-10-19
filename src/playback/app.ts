@@ -1016,7 +1016,14 @@ export function initPlaybackApp(root: HTMLElement): void {
     controlsTimer = window.setTimeout(() => {
       if (document.fullscreenElement !== player) return;
       const transport = player.querySelector<HTMLElement>('.transport');
-      if (transport && (transport.matches(':hover') || transport.contains(document.activeElement))) {
+      const active = document.activeElement;
+      const keyboardFocus =
+        active instanceof HTMLElement && active.matches(':focus-visible');
+      if (
+        transport &&
+        (transport.matches(':hover') ||
+          (keyboardFocus && transport.contains(active)))
+      ) {
         scheduleControlsHide();
         return;
       }
