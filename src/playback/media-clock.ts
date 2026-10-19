@@ -14,7 +14,7 @@ export type MediaEvent =
 type Listener = () => void;
 
 export interface MediaClock {
-  readonly kind: 'html' | 'youtube';
+  readonly kind: 'html' | 'youtube' | 'synthetic';
   time(): number;
   duration(): number;
   playing(): boolean;
@@ -27,7 +27,7 @@ export interface MediaClock {
 }
 
 abstract class BaseClock implements MediaClock {
-  abstract readonly kind: 'html' | 'youtube';
+  abstract readonly kind: 'html' | 'youtube' | 'synthetic';
 
   private listeners = new Map<MediaEvent, Set<Listener>>();
 
@@ -126,6 +126,72 @@ export class HtmlVideoClock extends BaseClock {
     this.video.pause();
     this.video.removeAttribute('src');
     this.video.load();
+    super.destroy();
+  }
+}
+
+export class SyntheticClock extends BaseClock {
+  readonly kind = 'synthetic' as const;
+
+  private length: number;
+  private current = 0;
+  private startedAt = 0;
+  private running = false;
+
+  constructor(durationSeconds: number) {
+    super();
+    this.length = Math.max(0, durationSeconds);
+  }
+
+  time(): number {
+    if (!this.running) return this.current;
+
+    const value = this.current + (performance.now() - this.startedAt) / 1000;
+    if (value >= this.length) {
+      this.current = this.length;
+      this.running = false;
+      this.emit('pause');
+      this.emit('ended');
+      return this.length;
+    }
+    return value;
+  }
+
+  duration(): number {
+    return this.length;
+  }
+
+  playing(): boolean {
+    return this.running;
+  }
+
+  rate(): number {
+    return 1;
+  }
+
+  async play(): Promise<void> {
+    if (this.current >= this.length) this.current = 0;
+    this.startedAt = performance.now();
+    this.running = true;
+    this.emit('play');
+    this.emit('playing');
+  }
+
+  pause(): void {
+    this.current = this.time();
+    this.running = false;
+    this.emit('pause');
+  }
+
+  async seek(seconds: number): Promise<void> {
+    this.current = Math.max(0, Math.min(seconds, this.length));
+    this.startedAt = performance.now();
+    this.emit('seeking');
+    this.emit('seeked');
+  }
+
+  destroy(): void {
+    this.running = false;
     super.destroy();
   }
 }

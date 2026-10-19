@@ -6,7 +6,7 @@
 
 Ghost Driver is a static web app. You load a video (local file, direct URL or YouTube), load a telemetry file, connect a compatible wheel over WebHID, and the wheel moves with the recorded steering. The wheel behaves like a ghost driver.
 
-> **Status: playback + wheel test.** Video (local, direct URL and YouTube), synthetic telemetry, the sync overlay, WebHID wheel connection and manual force tests work. Hands-off telemetry tracking is next. The product and technical contract live in [SPEC.md](./SPEC.md).
+> **Status: playback + wheel tracking.** Video (local, direct URL and YouTube), synthetic telemetry, the sync overlay, WebHID wheel connection, manual force tests and armed telemetry tracking work. Gain and safety tuning continue. The product and technical contract live in [SPEC.md](./SPEC.md).
 
 ## Modes
 

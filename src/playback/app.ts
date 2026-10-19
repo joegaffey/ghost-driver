@@ -1,6 +1,7 @@
 import WebHIDWheel, { type WheelState } from 'webhid-wheel';
 import {
   HtmlVideoClock,
+  SyntheticClock,
   YouTubeClock,
   parseYouTubeId,
   type MediaClock,
@@ -13,6 +14,11 @@ import {
   type TelemetryDocument,
   type TelemetryTrack,
 } from './telemetry';
+import {
+  TRACKING_INTERVAL_MS,
+  TRACKING_RESEND_MS,
+  trackingForce,
+} from './tracking';
 
 function el<T extends HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
@@ -141,6 +147,7 @@ export function initPlaybackApp(root: HTMLElement): void {
               <dt>Profile</dt><dd id="wheelProfile">—</dd>
               <dt>Angle</dt><dd id="wheelAngle">—</dd>
               <dt>FFB</dt><dd id="wheelFfb">—</dd>
+              <dt>Tracking</dt><dd id="wheelTracking">off</dd>
             </dl>
             <div class="control-row">
               <label for="wheelStrength">Test strength</label>
@@ -151,12 +158,17 @@ export function initPlaybackApp(root: HTMLElement): void {
               <input id="wheelInvert" type="checkbox" />
               Invert force
             </label>
+            <label class="check-row arm-row">
+              <input id="wheelArm" type="checkbox" disabled />
+              Arm telemetry tracking
+            </label>
             <div class="nudge-row">
+              <button id="wheelCenter" type="button" disabled>Set center</button>
               <button id="wheelTestLeft" type="button" disabled>Hold left</button>
               <button id="wheelTestRight" type="button" disabled>Hold right</button>
               <button id="wheelStop" type="button" disabled>Stop FFB</button>
             </div>
-            <p class="hint">Momentary test only. Hands-off tracking is not enabled yet.</p>
+            <p class="hint">Tracking is hands-off. Keep hands clear. If it pulls away from the target, enable Invert force.</p>
           </section>
 
           <section class="panel">
@@ -223,9 +235,12 @@ export function initPlaybackApp(root: HTMLElement): void {
   const wheelProfile = el<HTMLElement>('#wheelProfile');
   const wheelAngle = el<HTMLElement>('#wheelAngle');
   const wheelFfb = el<HTMLElement>('#wheelFfb');
+  const wheelTracking = el<HTMLElement>('#wheelTracking');
+  const wheelArm = el<HTMLInputElement>('#wheelArm');
   const wheelStrengthInput = el<HTMLInputElement>('#wheelStrength');
   const wheelStrengthValue = el<HTMLSpanElement>('#wheelStrengthValue');
   const wheelInvertInput = el<HTMLInputElement>('#wheelInvert');
+  const wheelCenter = el<HTMLButtonElement>('#wheelCenter');
   const wheelTestLeft = el<HTMLButtonElement>('#wheelTestLeft');
   const wheelTestRight = el<HTMLButtonElement>('#wheelTestRight');
   const wheelStop = el<HTMLButtonElement>('#wheelStop');
@@ -265,6 +280,14 @@ export function initPlaybackApp(root: HTMLElement): void {
   let wheelStrength = DEFAULT_WHEEL_STRENGTH;
   let wheelInvert = false;
   let connectingWheel = false;
+  let wheelCenterOffset = 0;
+  let trackingArmed = false;
+  let trackingForceActive = false;
+  let lastTrackingAt = 0;
+  let lastForceSentAt = 0;
+  let lastSentForce = 0;
+  let lastActualAngle: number | undefined;
+  let actualRate = 0;
 
   function setStatus(message: string, tone: 'info' | 'ok' | 'error' = 'info'): void {
     statusEl.textContent = message;
@@ -276,6 +299,14 @@ export function initPlaybackApp(root: HTMLElement): void {
     leadValue.textContent = `${leadMs} ms`;
     offsetInput.value = String(offsetMs);
     leadInput.value = String(leadMs);
+  }
+
+  function showVideoEmpty(mode: 'video' | 'telemetry'): void {
+    videoEmpty.innerHTML =
+      mode === 'telemetry'
+        ? '<strong>Telemetry only</strong><span>No video loaded. Press Play for telemetry-only, or load a video from the panel.</span>'
+        : '<strong>Load a video</strong><span>Local file, direct URL, or YouTube. The telemetry overlay works without a wheel.</span>';
+    videoEmpty.hidden = false;
   }
 
   function webHidAvailable(): boolean {
@@ -302,8 +333,24 @@ export function initPlaybackApp(root: HTMLElement): void {
     wheelConnect.disabled = connectingWheel || !supported;
 
     const canForce = connected && Boolean(wheel?.ffbCaps?.any);
-    wheelTestLeft.disabled = !canForce;
-    wheelTestRight.disabled = !canForce;
+    const canTrack = canForce && Boolean(track) && Boolean(clock);
+
+    if (!canTrack && trackingArmed) {
+      trackingArmed = false;
+      stopTrackingForce();
+    }
+
+    wheelArm.disabled = !canTrack;
+    wheelArm.checked = trackingArmed;
+    wheelTracking.textContent = trackingArmed
+      ? trackingForceActive
+        ? 'active'
+        : 'armed'
+      : 'off';
+
+    wheelCenter.disabled = !connected || typeof wheel?.state.rotation !== 'number';
+    wheelTestLeft.disabled = !canForce || trackingArmed;
+    wheelTestRight.disabled = !canForce || trackingArmed;
     wheelStop.disabled = !canForce;
 
     wheelDevice.textContent = connected ? (wheel?.name ?? 'Unknown wheel') : '—';
@@ -326,7 +373,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   function updateWheelInput(state: WheelState): void {
     const rotation =
       typeof state.rotation === 'number' && Number.isFinite(state.rotation)
-        ? state.rotation
+        ? state.rotation - wheelCenterOffset
         : undefined;
 
     if (rotation === undefined) {
@@ -336,7 +383,7 @@ export function initPlaybackApp(root: HTMLElement): void {
     }
 
     wheelAngle.textContent = `${Math.round(rotation)}°`;
-    const range = wheel?.maxRotation ?? 900;
+    const range = track?.steeringRangeDeg ?? wheel?.maxRotation ?? 900;
     const fraction = clamp(rotation / (range / 2), -1, 1);
     wheelMarker.hidden = false;
     wheelMarker.style.left = `${50 + fraction * 50}%`;
@@ -353,6 +400,135 @@ export function initPlaybackApp(root: HTMLElement): void {
     if (!wheel?.isConnected || !wheel.ffbCaps?.any || !wheel.ffb) return;
     void wheel.ffb.constant(value).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : 'Could not send force.', 'error');
+    });
+  }
+
+  function stopTrackingForce(): void {
+    lastTrackingAt = 0;
+    lastActualAngle = undefined;
+    actualRate = 0;
+    lastSentForce = 0;
+    if (!trackingForceActive) return;
+    trackingForceActive = false;
+    stopWheelForce();
+    wheelTracking.textContent = trackingArmed ? 'armed' : 'off';
+  }
+
+  function setTrackingArmed(armed: boolean, reason?: string): void {
+    if (armed) {
+      if (!wheel?.isConnected) {
+        setStatus('Connect a wheel before arming tracking.', 'error');
+        wheelArm.checked = false;
+        return;
+      }
+      if (!wheel.ffbCaps?.any) {
+        setStatus('This wheel does not report force-feedback support.', 'error');
+        wheelArm.checked = false;
+        return;
+      }
+      if (!track) {
+        setStatus('Load telemetry before arming tracking.', 'error');
+        wheelArm.checked = false;
+        return;
+      }
+      if (!clock) {
+        setStatus('Load a video before arming tracking.', 'error');
+        wheelArm.checked = false;
+        return;
+      }
+    }
+
+    if (trackingArmed === armed) {
+      if (!armed) stopTrackingForce();
+      return;
+    }
+
+    trackingArmed = armed;
+    wheelArm.checked = armed;
+    if (armed) {
+      setStatus('Wheel tracking armed. Keep hands clear.', 'ok');
+    } else {
+      stopTrackingForce();
+      setStatus(reason ?? 'Wheel tracking disarmed.');
+    }
+    updateWheelUi();
+  }
+
+  function updateWheelTracking(now: number): void {
+    if (!trackingArmed) {
+      stopTrackingForce();
+      return;
+    }
+
+    if (!wheel?.isConnected || !wheel.ffbCaps?.any || !clock || !clock.playing() || !track) {
+      stopTrackingForce();
+      return;
+    }
+
+    if (document.hidden) {
+      stopTrackingForce();
+      return;
+    }
+
+    if (now - lastTrackingAt < TRACKING_INTERVAL_MS) return;
+
+    const dt = lastTrackingAt > 0 ? (now - lastTrackingAt) / 1000 : 0;
+    lastTrackingAt = now;
+
+    const sample = stateAtPlayhead();
+    const rawActual = wheel.state.rotation;
+    const actual =
+      typeof rawActual === 'number' && Number.isFinite(rawActual)
+        ? rawActual - wheelCenterOffset
+        : undefined;
+
+    if (
+      !sample ||
+      sample.stale ||
+      sample.steer === undefined ||
+      actual === undefined ||
+      !Number.isFinite(actual)
+    ) {
+      stopTrackingForce();
+      wheelTracking.textContent = trackingArmed ? 'waiting' : 'off';
+      return;
+    }
+
+    const range = wheel.maxRotation;
+    const target = clamp(sample.steer, -range / 2, range / 2);
+
+    if (dt > 0 && lastActualAngle !== undefined) {
+      const rawRate = (actual - lastActualAngle) / dt;
+      actualRate = actualRate * 0.75 + rawRate * 0.25;
+    }
+    lastActualAngle = actual;
+
+    const command = trackingForce(target, actual, actualRate);
+
+    if (command === 0) {
+      if (trackingForceActive) {
+        trackingForceActive = false;
+        stopWheelForce();
+      }
+      lastSentForce = 0;
+      wheelTracking.textContent = 'armed';
+      return;
+    }
+
+    const elapsed = now - lastForceSentAt;
+    if (Math.abs(command - lastSentForce) < 0.01 && elapsed < TRACKING_RESEND_MS) return;
+
+    lastSentForce = command;
+    lastForceSentAt = now;
+    trackingForceActive = true;
+    wheelTracking.textContent = 'active';
+
+    void wheel.setConstantForce(command).catch((error: unknown) => {
+      setStatus(
+        error instanceof Error ? error.message : 'Wheel tracking failed.',
+        'error',
+      );
+      setTrackingArmed(false, 'Tracking stopped after a wheel error.');
     });
   }
 
@@ -373,10 +549,12 @@ export function initPlaybackApp(root: HTMLElement): void {
       next.on('connect', () => {
         next.ffbStrength = wheelStrength;
         next.ffbInvert = wheelInvert;
+        wheelCenterOffset = 0;
         updateWheelUi();
         setStatus(`Wheel connected: ${next.name ?? 'unknown device'}.`, 'ok');
       });
       next.on('disconnect', () => {
+        wheelCenterOffset = 0;
         updateWheelUi();
         setStatus('Wheel disconnected.');
       });
@@ -408,6 +586,7 @@ export function initPlaybackApp(root: HTMLElement): void {
           'error',
         );
       } finally {
+        wheelCenterOffset = 0;
         updateWheelUi();
       }
       return;
@@ -557,20 +736,32 @@ export function initPlaybackApp(root: HTMLElement): void {
     next.on('durationchange', updateTransport);
     next.on('loadedmetadata', updateTransport);
     next.on('ratechange', updateTransport);
-    next.on('error', () => setStatus('The video reported an error.', 'error'));
+    next.on('pause', stopTrackingForce);
+    next.on('seeking', stopTrackingForce);
+    next.on('waiting', stopTrackingForce);
+    next.on('ended', stopTrackingForce);
+    next.on('error', () => {
+      stopTrackingForce();
+      setStatus('The video reported an error.', 'error');
+    });
     updateTransport();
+    updateWheelUi();
   }
 
   function clearClock(): void {
     loadToken += 1;
+    trackingArmed = false;
+    wheelArm.checked = false;
+    stopTrackingForce();
     if (clock) {
       clock.destroy();
       clock = null;
     }
     videoHost.replaceChildren();
-    videoEmpty.hidden = false;
+    showVideoEmpty('video');
     lastDuration = 0;
     lastTimelineValue = -1;
+    updateWheelUi();
   }
 
   function loadVideoElement(source: string, label: string): void {
@@ -636,17 +827,30 @@ export function initPlaybackApp(root: HTMLElement): void {
     } catch (error) {
       if (token !== loadToken) return;
       videoHost.replaceChildren();
-      videoEmpty.hidden = false;
+      showVideoEmpty('video');
       setStatus(error instanceof Error ? error.message : 'Could not load YouTube.', 'error');
     }
   }
 
   function loadTelemetryDocument(document: TelemetryDocument): void {
+    trackingArmed = false;
+    wheelArm.checked = false;
+    stopTrackingForce();
+    if (clock?.kind === 'synthetic') {
+      clock.destroy();
+      clock = null;
+      showVideoEmpty('video');
+    }
     try {
       track = parseTelemetry(document);
       const meta = track.meta;
       const title = [meta.game, meta.car, meta.track].filter(Boolean).join(' · ') || meta.source || 'Telemetry';
       telemetryInfo.textContent = `${title} · ${track.sampleCount} samples · ${formatDuration(track.duration)} · ${track.steeringRangeDeg}° range`;
+      if (!clock) {
+        clock = new SyntheticClock(track.duration);
+        bindClock(clock);
+        showVideoEmpty('telemetry');
+      }
       setStatus('Telemetry loaded.', 'ok');
       renderHud(stateAtPlayhead());
     } catch (error) {
@@ -655,6 +859,7 @@ export function initPlaybackApp(root: HTMLElement): void {
       setStatus('Telemetry could not be loaded.', 'error');
       renderHud(null);
     }
+    updateWheelUi();
   }
 
   async function loadTelemetryFile(file: File): Promise<void> {
@@ -667,6 +872,7 @@ export function initPlaybackApp(root: HTMLElement): void {
       telemetryInfo.textContent = error instanceof Error ? error.message : 'Could not read telemetry.';
       setStatus('Telemetry could not be loaded.', 'error');
       renderHud(null);
+      updateWheelUi();
     }
   }
 
@@ -676,8 +882,14 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   async function togglePlay(): Promise<void> {
     if (!clock) {
-      setStatus('Load a video first.', 'error');
-      return;
+      if (!track) {
+        setStatus('Load a video or telemetry first.', 'error');
+        return;
+      }
+      clock = new SyntheticClock(track.duration);
+      bindClock(clock);
+      showVideoEmpty('telemetry');
+      setStatus('Telemetry-only playback. Load a video for visual sync.');
     }
     if (clock.playing()) {
       clock.pause();
@@ -688,6 +900,11 @@ export function initPlaybackApp(root: HTMLElement): void {
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not play the video.', 'error');
     }
+  }
+
+  function seekClock(seconds: number): void {
+    if (trackingArmed) setTrackingArmed(false, 'Tracking disarmed on seek.');
+    if (clock) void clock.seek(seconds);
   }
 
   function nudgeOffset(delta: number): void {
@@ -755,6 +972,19 @@ export function initPlaybackApp(root: HTMLElement): void {
     saveSettings();
   });
 
+  wheelArm.addEventListener('change', () => setTrackingArmed(wheelArm.checked));
+
+  wheelCenter.addEventListener('click', () => {
+    const rotation = wheel?.state.rotation;
+    if (!wheel?.isConnected || typeof rotation !== 'number' || !Number.isFinite(rotation)) {
+      setStatus('No wheel position available to center.', 'error');
+      return;
+    }
+    wheelCenterOffset = rotation;
+    updateWheelInput(wheel.state);
+    setStatus('Wheel center set.', 'ok');
+  });
+
   bindHoldForce(wheelTestLeft, -1);
   bindHoldForce(wheelTestRight, 1);
   wheelStop.addEventListener('click', stopWheelForce);
@@ -762,15 +992,21 @@ export function initPlaybackApp(root: HTMLElement): void {
   const hid = (navigator as Navigator & { hid?: EventTarget }).hid;
   hid?.addEventListener('disconnect', () => {
     if (wheel && !wheel.isConnected) {
+      wheelCenterOffset = 0;
       updateWheelUi();
       setStatus('Wheel disconnected.');
     }
   });
 
+  const safetyStopWheel = (reason: string): void => {
+    if (trackingArmed) setTrackingArmed(false, reason);
+    else stopWheelForce();
+  };
+
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopWheelForce();
+    if (document.hidden) safetyStopWheel('Tracking disarmed: tab hidden.');
   });
-  window.addEventListener('blur', stopWheelForce);
+  window.addEventListener('blur', () => safetyStopWheel('Tracking disarmed: window lost focus.'));
 
   timeline.addEventListener('pointerdown', () => {
     scrubbing = true;
@@ -779,7 +1015,7 @@ export function initPlaybackApp(root: HTMLElement): void {
     scrubbing = false;
   });
   timeline.addEventListener('input', () => {
-    if (clock) void clock.seek(Number(timeline.value));
+    seekClock(Number(timeline.value));
   });
 
   offsetInput.addEventListener('input', () => {
@@ -818,10 +1054,10 @@ export function initPlaybackApp(root: HTMLElement): void {
       void togglePlay();
     } else if (event.key === 'ArrowLeft' && clock) {
       event.preventDefault();
-      void clock.seek(clock.time() - 5);
+      seekClock(clock.time() - 5);
     } else if (event.key === 'ArrowRight' && clock) {
       event.preventDefault();
-      void clock.seek(clock.time() + 5);
+      seekClock(clock.time() + 5);
     } else if (event.key === '[') {
       nudgeOffset(-10);
     } else if (event.key === ']') {
@@ -836,13 +1072,14 @@ export function initPlaybackApp(root: HTMLElement): void {
     clock?.destroy();
   });
 
-  const tick = (): void => {
+  const tick = (now: number): void => {
+    updateWheelTracking(now);
     renderHud(stateAtPlayhead());
     updateTransport();
     requestAnimationFrame(tick);
   };
 
   loadSampleTelemetry();
-  setStatus('Synthetic telemetry loaded. Load a video to test playback.');
+  setStatus('Synthetic telemetry loaded. Connect a wheel and arm tracking, or load a video.');
   requestAnimationFrame(tick);
 }
