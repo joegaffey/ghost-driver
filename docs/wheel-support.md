@@ -1,6 +1,6 @@
 # Wheel support
 
-Ghost Driver uses only the project author's [`webhid-wheel`](../../webhid-wheel) library for HID and force feedback.
+Ghost Driver uses only the project author's [webhid-wheel](https://github.com/joegaffey/webhid-wheel) library for HID and force feedback.
 
 Support is **capability-based, not model-based**. The app asks what a device can do — position feedback, force output, direct control — and enables the modes those capabilities allow. It must not branch on wheel names.
 

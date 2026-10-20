@@ -2,7 +2,9 @@
 
 > **Experimental prototype.** This project is under active research and development. Formats, controls, APIs, safety behavior and hardware support may change without notice. Do not treat it as production software.
 
-**Open the player:** https://joegaffey.com/ghost-driver/play.html
+**Start here:** [Ghost Driver intro](https://joegaffey.com/ghost-driver/)
+
+**Player:** [Open the player](https://joegaffey.com/ghost-driver/play.html)
 
 **A pure-browser replay experience for racing and driving footage: watch a lap or run, replay its telemetry, and let a force-feedback wheel physically follow the drive.**
 
@@ -26,7 +28,7 @@ Ghost Driver supports both sim and real racing. Use it with simulator laps, real
 - **Browser only.** Static site, no backend, no live telemetry bridge.
 - **Video:** local file, direct MP4/WebM URL, and YouTube via the IFrame API.
 - **Telemetry:** canonical JSON and generic CSV with a column-mapping UI. Native binary formats come later.
-- **Wheel:** capability-based, using only our own [`webhid-wheel`](../webhid-wheel) library. Modes are selected from what each device reports (position feedback, force output, direct control). CAMMUS C5 and FFBeast are the first tested devices; other wheels use the same adapter model.
+- **Wheel:** capability-based, using only our own [webhid-wheel](https://github.com/joegaffey/webhid-wheel) library. Modes are selected from what each device reports (position feedback, force output, direct control). CAMMUS C5 and FFBeast are the first tested devices; other wheels use the same adapter model.
 - **Sync:** manual offset, fine nudge, and a separate FFB lead control.
 - **Safety:** explicit arming, low default force, watchdogs, and automatic stop on pause, seek, buffer, tab hide, blur, disconnect and media error.
 
@@ -115,7 +117,7 @@ Requires Node 20+ and a Chromium-based desktop browser with WebHID for wheel wor
 
 ## Dependencies
 
-The finished app will use only the project author's [`webhid-wheel`](../webhid-wheel) library for HID and force feedback. No third-party HID/FFB runtime dependency is planned.
+The finished app will use only the project author's [webhid-wheel](https://github.com/joegaffey/webhid-wheel) library for HID and force feedback. No third-party HID/FFB runtime dependency is planned.
 
 ## Name
 

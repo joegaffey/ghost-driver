@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Experimental pure-browser racing and driving video + telemetry playback that drives a force-feedback wheel.",
+  "homepage": "https://joegaffey.com/ghost-driver/",
   "engines": {
     "node": ">=20"
   },

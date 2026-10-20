@@ -738,4 +738,4 @@ Detailed sequencing is in [docs/roadmap.md](./docs/roadmap.md).
 - FFBeast project: https://ffbeast.github.io/
 - FFBeast community docs: https://coronafighter08.github.io/FFBeast-Wheel-Docs/
 - FFBeast WebHID protocol reference (MIT, reference only): https://github.com/shubham0x13/ffbeast-wheel-webhid-api
-- Project library: `../webhid-wheel`
+- Project library: https://github.com/joegaffey/webhid-wheel
