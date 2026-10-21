@@ -36,7 +36,7 @@ app.innerHTML = `
         <div class="actions">
           <a class="button" href="./play.html">Open playback</a>
           <a class="button ghost" href="./edit.html">Edit session</a>
-          <a class="button ghost" href="#docs">Docs</a>
+          <a class="button ghost" href="./SPEC.html">Docs</a>
         </div>
       </div>
 
@@ -72,7 +72,7 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section id="docs">
+    <section>
       <h2>Design docs</h2>
       <div class="doc-grid">
         <a class="doc" href="./SPEC.html"><strong>Specification</strong><span>Product and technical contract</span></a>

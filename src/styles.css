@@ -52,9 +52,6 @@ body::before {
   padding: 56px 24px 40px;
 }
 
-#docs {
-  scroll-margin-top: 24px;
-}
 
 main {
   display: grid;
