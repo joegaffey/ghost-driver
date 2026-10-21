@@ -90,9 +90,45 @@ h3 {
 
 .hero {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: center;
+  gap: 32px;
+  padding-top: 24px;
+}
+
+.hero-copy {
+  display: grid;
   justify-items: start;
   gap: 16px;
-  padding-top: 24px;
+}
+
+.hero-mascot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mascot-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.35));
+  animation: mascot-float 4.5s ease-in-out infinite;
+  transform-origin: 50% 55%;
+}
+
+
+
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
 }
 
 .eyebrow {
@@ -346,9 +382,25 @@ footer {
     gap: 40px;
   }
 
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .hero-mascot {
+    width: min(300px, 78vw);
+    justify-self: center;
+  }
+
   .mode-grid,
   .two-col,
   .doc-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-image {
+    animation: none;
   }
 }

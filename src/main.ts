@@ -25,18 +25,24 @@ const modeCards = DRIVE_MODES.map(
 app.innerHTML = `
   <main>
     <header class="hero">
-      <p class="eyebrow">experimental prototype · v0.0.1</p>
-      <h1>Ghost Driver</h1>
-      <p class="lede">Watch the lap. Feel the drive.</p>
-      <p class="experiment-note">Experimental build: formats, controls and hardware support may change.</p>
-      <p class="intro">
-        A pure-browser replay experience for racing and driving footage. Load a video and a telemetry file,
-        connect a force-feedback wheel, and let an invisible driver move the wheel through the lap or run.
-      </p>
-      <div class="actions">
-        <a class="button" href="./play.html">Open playback</a>
-        <a class="button ghost" href="./SPEC.html">Read the spec</a>
-        <a class="button ghost" href="./docs/roadmap.html">Roadmap</a>
+      <div class="hero-copy">
+        <p class="eyebrow">experimental prototype · v0.0.1</p>
+        <h1>Ghost Driver</h1>
+        <p class="lede">Watch the lap. Feel the drive.</p>
+        <p class="experiment-note">Experimental build: formats, controls and hardware support may change.</p>
+        <p class="intro">
+          A pure-browser replay experience for racing and driving footage. Load a video and a telemetry file,
+          connect a force-feedback wheel, and let an invisible driver move the wheel through the lap or run.
+        </p>
+        <div class="actions">
+          <a class="button" href="./play.html">Open playback</a>
+          <a class="button ghost" href="./SPEC.html">Read the spec</a>
+          <a class="button ghost" href="./docs/roadmap.html">Roadmap</a>
+        </div>
+      </div>
+
+      <div class="hero-mascot">
+        <img class="mascot-image" src="./mascot.png" alt="Mischievous ghost wearing a racing helmet" width="760" height="760" />
       </div>
     </header>
 
