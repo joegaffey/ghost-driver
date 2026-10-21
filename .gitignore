@@ -10,3 +10,6 @@ sessions/
 !.env.example
 .DS_Store
 *.log
+
+public/SPEC.html
+public/docs/

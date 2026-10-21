@@ -35,8 +35,8 @@ app.innerHTML = `
       </p>
       <div class="actions">
         <a class="button" href="./play.html">Open playback</a>
-        <a class="button ghost" href="./SPEC.md">Read the spec</a>
-        <a class="button ghost" href="./docs/roadmap.md">Roadmap</a>
+        <a class="button ghost" href="./SPEC.html">Read the spec</a>
+        <a class="button ghost" href="./docs/roadmap.html">Roadmap</a>
       </div>
     </header>
 
@@ -63,17 +63,17 @@ app.innerHTML = `
           Ghost Wheel mode is hands-off. The wheel can move forcefully and unexpectedly.
           Keep hands clear, use low strength, and keep a physical power switch or e-stop within reach.
         </p>
-        <a class="text-link" href="./docs/safety.md">Read the safety requirements →</a>
+        <a class="text-link" href="./docs/safety.html">Read the safety requirements →</a>
       </div>
     </section>
 
     <section>
       <h2>Design docs</h2>
       <div class="doc-grid">
-        <a class="doc" href="./SPEC.md"><strong>SPEC.md</strong><span>Product and technical contract</span></a>
-        <a class="doc" href="./docs/telemetry-format.md"><strong>Telemetry format</strong><span>Canonical JSON and CSV import</span></a>
-        <a class="doc" href="./docs/wheel-support.md"><strong>Wheel support</strong><span>Capability model and adapters</span></a>
-        <a class="doc" href="./docs/safety.md"><strong>Safety</strong><span>Hazards, limits, and stop conditions</span></a>
+        <a class="doc" href="./SPEC.html"><strong>Specification</strong><span>Product and technical contract</span></a>
+        <a class="doc" href="./docs/telemetry-format.html"><strong>Telemetry format</strong><span>Canonical JSON and CSV import</span></a>
+        <a class="doc" href="./docs/wheel-support.html"><strong>Wheel support</strong><span>Capability model and adapters</span></a>
+        <a class="doc" href="./docs/safety.html"><strong>Safety</strong><span>Hazards, limits, and stop conditions</span></a>
       </div>
     </section>
 
