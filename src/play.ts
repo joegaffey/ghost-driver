@@ -7,4 +7,4 @@ if (!root) {
   throw new Error('Missing #play-app element');
 }
 
-initPlaybackApp(root);
+initPlaybackApp(root, 'player');

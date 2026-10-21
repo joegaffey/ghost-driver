@@ -20,6 +20,16 @@ import {
   TRACKING_RESEND_MS,
   trackingForce,
 } from './tracking';
+import {
+  createSession,
+  exportableVideos,
+  parseSessionFile,
+  serializeSession,
+  sessionSlug,
+  videoTimeFromTelemetry,
+  type GhostDriverSession,
+  type SessionVideo,
+} from './session';
 
 function el<T extends HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
@@ -31,19 +41,38 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character] ?? character,
+  );
+}
+
 const SETTINGS_KEY = 'ghost-driver.playback.settings';
 const SETTINGS_VERSION = 2;
 const DEFAULT_WHEEL_STRENGTH = 0.25;
 const MAX_WHEEL_STRENGTH = 0.5;
 const FULLSCREEN_IDLE_MS = 2500;
 
-export function initPlaybackApp(root: HTMLElement): void {
+export function initPlaybackApp(
+  root: HTMLElement,
+  mode: 'player' | 'editor' = 'editor',
+): void {
+  const isEditor = mode === 'editor';
   root.innerHTML = `
     <div class="play-shell">
       <header class="play-header">
         <a class="brand" href="./">Ghost Driver</a>
-        <span class="play-badge">experimental · wheel test</span>
-        <span id="status" class="status">Load a video to begin.</span>
+        <span class="play-badge">experimental · ${isEditor ? 'editor' : 'player'}</span>
+        <span id="status" class="status">${isEditor ? 'Load a video and telemetry to begin.' : 'Open a session to begin.'}</span>
+        <a class="header-link" href="${isEditor ? './play.html' : './edit.html'}">${isEditor ? 'Player' : 'Editor'}</a>
       </header>
 
       <main class="play-main">
@@ -112,12 +141,13 @@ export function initPlaybackApp(root: HTMLElement): void {
             <button id="playPause" class="primary" type="button">Play</button>
             <input id="timeline" class="timeline" type="range" min="0" max="1" step="0.01" value="0" />
             <span id="timeReadout" class="time-readout">0:00 / 0:00</span>
+            <select id="cameraSelect" class="camera-select" aria-label="Camera" hidden></select>
             <button id="hudToggle" type="button" class="transport-button active" aria-pressed="true" title="Hide HUD">HUD</button>
             <button id="fullscreen" type="button" class="transport-button" title="Maximize video">Maximize</button>
           </div>
           </div>
 
-          <div class="stage-panels">
+          <div class="stage-panels"${isEditor ? '' : ' hidden'}>
             <section class="panel">
               <h2>Sync</h2>
               <div class="control-row">
@@ -155,7 +185,7 @@ export function initPlaybackApp(root: HTMLElement): void {
         </section>
 
         <aside class="side">
-          <section class="panel">
+          <section class="panel"${isEditor ? '' : ' hidden'}>
             <h2>Video</h2>
             <div class="tabs" role="tablist">
               <button type="button" class="active" data-source="local">Local file</button>
@@ -179,7 +209,7 @@ export function initPlaybackApp(root: HTMLElement): void {
             </div>
           </section>
 
-          <section class="panel">
+          <section class="panel"${isEditor ? '' : ' hidden'}>
             <h2>Telemetry</h2>
             <label class="file-label">
               Load canonical JSON
@@ -187,6 +217,22 @@ export function initPlaybackApp(root: HTMLElement): void {
             </label>
             <button id="loadSample" type="button">Use synthetic sample</button>
             <p id="telemetryInfo" class="hint">No telemetry loaded.</p>
+          </section>
+
+          <section class="panel">
+            <h2>Session</h2>
+            <label class="file-label">
+              ${isEditor ? 'Import session' : 'Open session'}
+              <input id="sessionFile" type="file" accept=".json,.ghost.json,application/json" />
+            </label>
+            <div id="sessionEditorFields"${isEditor ? '' : ' hidden'}>
+              <input id="sessionTitle" type="text" placeholder="Session title" />
+              <button id="exportSession" type="button">Export session</button>
+            </div>
+            <p id="sessionInfo" class="hint">No session loaded.</p>
+            <p id="sessionWarning" class="hint warn"></p>
+            <div id="cameraList" class="camera-list"${isEditor ? '' : ' hidden'}></div>
+            <a class="text-link" href="${isEditor ? './play.html' : './edit.html'}">${isEditor ? 'Open player' : 'Open editor'}</a>
           </section>
 
           <section class="panel">
@@ -249,6 +295,13 @@ export function initPlaybackApp(root: HTMLElement): void {
   const telemetryFile = el<HTMLInputElement>('#telemetryFile');
   const loadSample = el<HTMLButtonElement>('#loadSample');
   const telemetryInfo = el<HTMLParagraphElement>('#telemetryInfo');
+  const cameraSelect = el<HTMLSelectElement>('#cameraSelect');
+  const sessionFile = el<HTMLInputElement>('#sessionFile');
+  const sessionTitleInput = el<HTMLInputElement>('#sessionTitle');
+  const exportSessionButton = el<HTMLButtonElement>('#exportSession');
+  const sessionInfo = el<HTMLParagraphElement>('#sessionInfo');
+  const sessionWarning = el<HTMLParagraphElement>('#sessionWarning');
+  const cameraList = el<HTMLDivElement>('#cameraList');
   const offsetInput = el<HTMLInputElement>('#offset');
   const offsetValue = el<HTMLSpanElement>('#offsetValue');
   const leadInput = el<HTMLInputElement>('#lead');
@@ -298,9 +351,12 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   let clock: MediaClock | null = null;
   let track: TelemetryTrack | null = null;
+  let telemetryDocument: TelemetryDocument | null = null;
+  let session: GhostDriverSession | null = null;
+  let activeVideoId: string | null = null;
+  const localVideoUrls = new Map<string, string>();
   let offsetMs = 0;
   let leadMs = 0;
-  let objectUrl: string | null = null;
   let loadToken = 0;
   let scrubbing = false;
   let lastDuration = 0;
@@ -336,6 +392,67 @@ export function initPlaybackApp(root: HTMLElement): void {
     leadInput.value = String(leadMs);
   }
 
+  function activeSessionVideo(): SessionVideo | null {
+    if (!session || !activeVideoId) return null;
+    return session.videos.find((video) => video.id === activeVideoId) ?? null;
+  }
+
+  function videoSourceLabel(video: SessionVideo): string {
+    if (video.source.type === 'youtube') return 'YouTube';
+    if (video.source.type === 'url') return 'Direct URL';
+    return 'Local file';
+  }
+
+  function updateSessionUi(): void {
+    const videos = session?.videos ?? [];
+
+    cameraSelect.innerHTML = videos
+      .map(
+        (video) =>
+          `<option value="${escapeHtml(video.id)}"${video.id === activeVideoId ? ' selected' : ''}>${escapeHtml(video.label)}</option>`,
+      )
+      .join('');
+    cameraSelect.hidden = videos.length === 0;
+
+    sessionInfo.textContent = session
+      ? `${session.meta.title ?? 'Ghost Driver session'} · ${videos.length} camera${videos.length === 1 ? '' : 's'}${track ? ` · ${formatDuration(track.duration)}` : ''}`
+      : isEditor
+        ? 'No session loaded. Use synthetic telemetry or import a session.'
+        : 'Open a session to begin.';
+
+    const localCount = videos.filter((video) => video.source.type === 'local').length;
+    sessionWarning.textContent =
+      localCount > 0
+        ? `${localCount} local camera${localCount === 1 ? ' is' : 's are'} preview-only and will not be included in the exported session until ZIP support lands.`
+        : '';
+
+    if (document.activeElement !== sessionTitleInput) {
+      sessionTitleInput.value = session?.meta.title ?? '';
+    }
+
+    cameraList.innerHTML = videos.length
+      ? videos
+          .map(
+            (video) => `<div class="camera-item${video.id === activeVideoId ? ' active' : ''}" data-camera-id="${escapeHtml(video.id)}">
+              <button type="button" class="camera-pick" data-camera-action="select">
+                <span>${escapeHtml(video.label)}</span>
+                <em>${videoSourceLabel(video)}</em>
+              </button>
+              <span class="camera-offset">${video.offsetMs} ms</span>
+              <button type="button" class="camera-remove" data-camera-action="remove">Remove</button>
+            </div>`,
+          )
+          .join('')
+      : '<p class="hint">No cameras yet. Load a video to add one.</p>';
+  }
+
+  function updateActiveVideoOffset(): void {
+    const video = activeSessionVideo();
+    if (!video) return;
+    video.offsetMs = offsetMs;
+    updateSessionUi();
+  }
+
   function applyHudVisibility(): void {
     const hud = document.querySelector<HTMLElement>('.hud');
     if (hud) hud.hidden = !hudVisible;
@@ -348,7 +465,9 @@ export function initPlaybackApp(root: HTMLElement): void {
     videoEmpty.innerHTML =
       mode === 'telemetry'
         ? '<strong>Telemetry only</strong><span>No video loaded. Press Play for telemetry-only, or load a video from the panel.</span>'
-        : '<strong>Load a video</strong><span>Local file, direct URL, or YouTube. The telemetry overlay works without a wheel.</span>';
+        : isEditor
+          ? '<strong>Load a video</strong><span>Local file, direct URL, or YouTube. The telemetry overlay works without a wheel.</span>'
+          : '<strong>Open a session</strong><span>Load a Ghost Driver session to play. Use the editor to create one.</span>';
     videoEmpty.hidden = false;
   }
 
@@ -901,75 +1020,370 @@ export function initPlaybackApp(root: HTMLElement): void {
     updateWheelUi();
   }
 
-  function loadVideoElement(source: string, label: string): void {
-    clearClock();
-    const video = document.createElement('video');
-    video.className = 'video-el';
-    video.playsInline = true;
-    video.preload = 'metadata';
-    video.src = source;
-    videoHost.append(video);
-    videoEmpty.hidden = true;
-
-    clock = new HtmlVideoClock(video);
-    bindClock(clock);
-    setStatus(`${label} loaded.`);
-    video.load();
+  function newVideoId(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID();
+    }
+    return `camera-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  function loadLocalFile(file: File): void {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = URL.createObjectURL(file);
-    loadVideoElement(objectUrl, file.name);
+  function revokeLocalVideos(): void {
+    for (const url of localVideoUrls.values()) URL.revokeObjectURL(url);
+    localVideoUrls.clear();
   }
 
-  function loadDirectUrl(): void {
+  function sameSource(
+    left: SessionVideo['source'],
+    right: SessionVideo['source'],
+  ): boolean {
+    if (left.type !== right.type) return false;
+    if (left.type === 'youtube' && right.type === 'youtube') return left.videoId === right.videoId;
+    if (left.type === 'url' && right.type === 'url') return left.url === right.url;
+    if (left.type === 'local' && right.type === 'local') return left.name === right.name;
+    return false;
+  }
+
+  function addSessionVideo(video: SessionVideo): void {
+    if (!session) {
+      if (!telemetryDocument) {
+        setStatus('Load telemetry before adding a camera.', 'error');
+        return;
+      }
+      session = createSession(telemetryDocument, [], leadMs);
+    }
+
+    const existing = session.videos.find((candidate) => sameSource(candidate.source, video.source));
+    if (existing) {
+      void switchCamera(existing.id);
+      updateSessionUi();
+      return;
+    }
+
+    session.videos.push(video);
+    if (!session.defaultVideoId) session.defaultVideoId = video.id;
+    updateSessionUi();
+    void activateVideo(video);
+  }
+
+  function addLocalVideo(file: File): void {
+    const id = newVideoId();
+    const objectUrl = URL.createObjectURL(file);
+    localVideoUrls.set(id, objectUrl);
+    addSessionVideo({
+      id,
+      label: file.name.replace(/\.[^.]+$/, '') || 'Local camera',
+      source: { type: 'local', name: file.name },
+      offsetMs: 0,
+    });
+  }
+
+  function addYouTubeById(videoId: string): void {
+    addSessionVideo({
+      id: newVideoId(),
+      label: `YouTube ${videoId}`,
+      source: { type: 'youtube', videoId },
+      offsetMs: 0,
+    });
+  }
+
+  function addDirectUrl(): void {
     const value = videoUrl.value.trim();
     if (!value) {
       setStatus('Paste a direct video URL first.', 'error');
       return;
     }
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
+
+    const youtubeId = parseYouTubeId(value);
+    if (youtubeId) {
+      addYouTubeById(youtubeId);
+      return;
     }
-    loadVideoElement(value, 'Direct video');
+
+    let label = 'Direct video';
+    try {
+      const path = new URL(value).pathname.split('/').filter(Boolean).pop();
+      if (path) label = decodeURIComponent(path).replace(/\.[^.]+$/, '');
+    } catch {
+      // Keep the fallback label.
+    }
+
+    addSessionVideo({
+      id: newVideoId(),
+      label,
+      source: { type: 'url', url: value },
+      offsetMs: 0,
+    });
   }
 
-  async function loadYouTubeVideo(): Promise<void> {
+  async function addYouTubeVideo(): Promise<void> {
     const id = parseYouTubeId(youtubeUrl.value);
     if (!id) {
       setStatus('That does not look like a YouTube video URL.', 'error');
       return;
     }
+    addYouTubeById(id);
+  }
 
-    clearClock();
+  function createHtmlVideoClock(source: string): Promise<HtmlVideoClock> {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.className = 'video-el';
+      video.playsInline = true;
+      video.preload = 'auto';
+      video.src = source;
+
+      let settled = false;
+      const cleanup = (): void => {
+        window.clearTimeout(timer);
+        video.removeEventListener('loadedmetadata', onLoaded);
+        video.removeEventListener('error', onError);
+      };
+      const onLoaded = (): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(new HtmlVideoClock(video));
+      };
+      const onError = (): void => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error('Could not load the video.'));
+      };
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error('Timed out while loading the video.'));
+      }, 15000);
+
+      video.addEventListener('loadedmetadata', onLoaded, { once: true });
+      video.addEventListener('error', onError, { once: true });
+      videoHost.append(video);
+      video.load();
+    });
+  }
+
+  async function activateVideo(
+    video: SessionVideo,
+    options: { startTime?: number; autoplay?: boolean } = {},
+  ): Promise<boolean> {
     const token = ++loadToken;
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
-    }
+    const previous = clock;
+    clock = null;
+    stopWheelForce();
+    previous?.destroy();
+    videoHost.replaceChildren();
     videoEmpty.hidden = true;
-    setStatus('Loading YouTube player...');
+    setStatus(`Loading ${video.label}...`);
 
+    let next: MediaClock;
     try {
-      const next = await YouTubeClock.create(videoHost, id);
-      if (token !== loadToken) {
-        next.destroy();
-        return;
+      if (video.source.type === 'youtube') {
+        next = await YouTubeClock.create(videoHost, video.source.videoId);
+      } else if (video.source.type === 'url') {
+        next = await createHtmlVideoClock(video.source.url);
+      } else {
+        const objectUrl = localVideoUrls.get(video.id);
+        if (!objectUrl) throw new Error('This local camera is not available in this session.');
+        next = await createHtmlVideoClock(objectUrl);
       }
-      clock = next;
-      bindClock(next);
-      setStatus('YouTube loaded. Timing is best-effort; use offset/lead.');
     } catch (error) {
-      if (token !== loadToken) return;
+      if (token !== loadToken) return false;
       videoHost.replaceChildren();
       showVideoEmpty('video');
-      setStatus(error instanceof Error ? error.message : 'Could not load YouTube.', 'error');
+      updateSessionUi();
+      updateTransport();
+      setStatus(error instanceof Error ? error.message : 'Could not load the camera.', 'error');
+      return false;
+    }
+
+    if (token !== loadToken) {
+      next.destroy();
+      return false;
+    }
+
+    clock = next;
+    activeVideoId = video.id;
+    offsetMs = clamp(video.offsetMs, -2000, 2000);
+    bindClock(next);
+    updateSyncLabels();
+    updateSessionUi();
+
+    try {
+      if (options.startTime !== undefined) {
+        const duration = next.duration();
+        const target =
+          duration > 0
+            ? clamp(options.startTime, 0, duration)
+            : Math.max(0, options.startTime);
+        await next.seek(target);
+      }
+      if (options.autoplay) {
+        await next.play();
+      }
+      setStatus(`Camera: ${video.label}.`, 'ok');
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : 'Camera loaded. Press Play.',
+        'info',
+      );
+    }
+
+    renderHud(stateAtPlayhead());
+    updateTransport();
+    updateWheelUi();
+    return true;
+  }
+
+  async function switchCamera(id: string): Promise<void> {
+    if (!session || id === activeVideoId) return;
+    const video = session.videos.find((candidate) => candidate.id === id);
+    if (!video) return;
+
+    const wasPlaying = clock?.playing() ?? false;
+    const telemetryTime = clock ? clock.time() + offsetMs / 1000 : 0;
+    const startTime = videoTimeFromTelemetry(telemetryTime, video.offsetMs);
+    await activateVideo(video, { startTime, autoplay: wasPlaying });
+  }
+
+  function removeVideo(id: string): void {
+    if (!session) return;
+    const index = session.videos.findIndex((video) => video.id === id);
+    if (index < 0) return;
+
+    const [removed] = session.videos.splice(index, 1);
+    const wasActive = activeVideoId === id;
+    if (session.defaultVideoId === id) {
+      session.defaultVideoId = session.videos[0]?.id;
+    }
+
+    if (wasActive) {
+      activeVideoId = null;
+      const next = session.videos[0];
+      if (next) {
+        void switchCamera(next.id);
+      } else {
+        clearClock();
+        if (track) {
+          clock = new SyntheticClock(track.duration);
+          bindClock(clock);
+          showVideoEmpty('telemetry');
+        }
+        updateSessionUi();
+      }
+    }
+
+    const objectUrl = localVideoUrls.get(id);
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      localVideoUrls.delete(id);
+    }
+    if (removed.source.type === 'local') updateSessionUi();
+    updateSessionUi();
+  }
+
+  async function loadSessionFile(file: File): Promise<void> {
+    try {
+      const text = await file.text();
+      const result = parseSessionFile(text);
+      clearClock();
+      revokeLocalVideos();
+      session = null;
+      activeVideoId = null;
+
+      if (result.kind === 'telemetry') {
+        if (!loadTelemetryDocument(result.document)) return;
+        session = createSession(result.document, [], leadMs);
+        updateSessionUi();
+        setStatus('Telemetry loaded. Add video sources or import a session.', 'ok');
+        return;
+      }
+
+      const loaded = result.session;
+      session = loaded;
+      leadMs = loaded.ffbLeadMs;
+      updateSyncLabels();
+      sessionTitleInput.value = loaded.meta.title ?? '';
+
+      if (!loadTelemetryDocument(loaded.telemetry, { createClock: false })) {
+        session = null;
+        updateSessionUi();
+        return;
+      }
+
+      updateSessionUi();
+      const preferred =
+        loaded.videos.find((video) => video.id === loaded.defaultVideoId) ??
+        loaded.videos[0];
+      const playable =
+        preferred && preferred.source.type !== 'local'
+          ? preferred
+          : loaded.videos.find((video) => video.source.type !== 'local');
+
+      if (playable) {
+        const activated = await activateVideo(playable);
+        if (!activated) return;
+      } else if (track) {
+        clock = new SyntheticClock(track.duration);
+        bindClock(clock);
+        showVideoEmpty('telemetry');
+      }
+
+      setStatus(`Session loaded: ${loaded.meta.title ?? 'Untitled'}.`, 'ok');
+    } catch (error) {
+      clearClock();
+      session = null;
+      activeVideoId = null;
+      updateSessionUi();
+      setStatus(error instanceof Error ? error.message : 'Could not load the session.', 'error');
     }
   }
 
-  function loadTelemetryDocument(document: TelemetryDocument): void {
+  function exportSessionFile(): void {
+    if (!session || !telemetryDocument) {
+      setStatus('Load telemetry before exporting a session.', 'error');
+      return;
+    }
+
+    const currentSession = session;
+    const title =
+      sessionTitleInput.value.trim() ||
+      currentSession.meta.title ||
+      'Ghost Driver session';
+    const videos = exportableVideos(currentSession);
+    const defaultVideoId = videos.some((video) => video.id === currentSession.defaultVideoId)
+      ? currentSession.defaultVideoId
+      : videos[0]?.id;
+
+    const payload: GhostDriverSession = {
+      ...currentSession,
+      meta: { ...currentSession.meta, title },
+      telemetry: telemetryDocument,
+      videos,
+      defaultVideoId,
+      ffbLeadMs: leadMs,
+    };
+
+    const blob = new Blob([serializeSession(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${sessionSlug(title)}.ghost.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    if (videos.length < currentSession.videos.length) {
+      setStatus('Session exported without local camera files. ZIP support comes later.', 'info');
+    } else {
+      setStatus('Session exported.', 'ok');
+    }
+  }
+
+  function loadTelemetryDocument(
+    document: TelemetryDocument,
+    options: { createClock?: boolean } = {},
+  ): boolean {
     trackingArmed = false;
     wheelArm.checked = false;
     stopTrackingForce();
@@ -978,43 +1392,58 @@ export function initPlaybackApp(root: HTMLElement): void {
       clock = null;
       showVideoEmpty('video');
     }
+
     try {
       track = parseTelemetry(document);
+      telemetryDocument = document;
       const meta = track.meta;
       const title = [meta.game, meta.car, meta.track].filter(Boolean).join(' · ') || meta.source || 'Telemetry';
       telemetryInfo.textContent = `${title} · ${track.sampleCount} samples · ${formatDuration(track.duration)} · ${track.steeringRangeDeg}° range`;
-      if (!clock) {
+      if (options.createClock !== false && !clock) {
         clock = new SyntheticClock(track.duration);
         bindClock(clock);
         showVideoEmpty('telemetry');
       }
       setStatus('Telemetry loaded.', 'ok');
       renderHud(stateAtPlayhead());
+      updateWheelUi();
+      return true;
     } catch (error) {
       track = null;
+      telemetryDocument = null;
       telemetryInfo.textContent = error instanceof Error ? error.message : 'Invalid telemetry.';
       setStatus('Telemetry could not be loaded.', 'error');
       renderHud(null);
+      updateWheelUi();
+      return false;
     }
-    updateWheelUi();
   }
 
   async function loadTelemetryFile(file: File): Promise<void> {
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-      loadTelemetryDocument(parsed as TelemetryDocument);
+      const parsed = JSON.parse(text) as TelemetryDocument;
+      if (!loadTelemetryDocument(parsed)) return;
+      if (session) session.telemetry = parsed;
+      else session = createSession(parsed, [], leadMs);
+      updateSessionUi();
     } catch (error) {
       track = null;
+      telemetryDocument = null;
       telemetryInfo.textContent = error instanceof Error ? error.message : 'Could not read telemetry.';
       setStatus('Telemetry could not be loaded.', 'error');
       renderHud(null);
       updateWheelUi();
+      updateSessionUi();
     }
   }
 
   function loadSampleTelemetry(): void {
-    loadTelemetryDocument(buildSyntheticTelemetry(120, 60));
+    const document = buildSyntheticTelemetry(120, 60);
+    if (!loadTelemetryDocument(document)) return;
+    if (session) session.telemetry = document;
+    else session = createSession(document, [], leadMs);
+    updateSessionUi();
   }
 
   function scheduleControlsHide(): void {
@@ -1101,6 +1530,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   function nudgeOffset(delta: number): void {
     offsetMs = clamp(offsetMs + delta, -2000, 2000);
     updateSyncLabels();
+    updateActiveVideoOffset();
     saveSettings();
     renderHud(stateAtPlayhead());
   }
@@ -1121,6 +1551,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   wheelInvertInput.checked = wheelInvert;
   applyHudVisibility();
   updateWheelUi();
+  updateSessionUi();
   updateFullscreenUi();
   if (!document.fullscreenEnabled) {
     fullscreenButton.disabled = true;
@@ -1129,17 +1560,50 @@ export function initPlaybackApp(root: HTMLElement): void {
 
   videoFile.addEventListener('change', () => {
     const file = videoFile.files?.[0];
-    if (file) loadLocalFile(file);
+    if (file) addLocalVideo(file);
   });
 
-  loadUrl.addEventListener('click', loadDirectUrl);
+  loadUrl.addEventListener('click', addDirectUrl);
   videoUrl.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') loadDirectUrl();
+    if (event.key === 'Enter') addDirectUrl();
   });
 
-  loadYouTube.addEventListener('click', () => void loadYouTubeVideo());
+  loadYouTube.addEventListener('click', () => void addYouTubeVideo());
   youtubeUrl.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') void loadYouTubeVideo();
+    if (event.key === 'Enter') void addYouTubeVideo();
+  });
+
+  sessionFile.addEventListener('change', () => {
+    const file = sessionFile.files?.[0];
+    if (file) void loadSessionFile(file);
+    sessionFile.value = '';
+  });
+
+  exportSessionButton.addEventListener('click', exportSessionFile);
+
+  sessionTitleInput.addEventListener('input', () => {
+    if (!session) return;
+    session.meta.title = sessionTitleInput.value.trim() || session.meta.title;
+  });
+
+  cameraSelect.addEventListener('change', () => {
+    void switchCamera(cameraSelect.value);
+  });
+
+  cameraList.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const item = target.closest<HTMLElement>('[data-camera-id]');
+    if (!item) return;
+    const id = item.dataset.cameraId;
+    if (!id) return;
+    if (target.closest('[data-camera-action="remove"]')) {
+      removeVideo(id);
+      return;
+    }
+    if (target.closest('[data-camera-action="select"]')) {
+      void switchCamera(id);
+    }
   });
 
   for (const button of document.querySelectorAll<HTMLButtonElement>('[data-source]')) {
@@ -1228,12 +1692,14 @@ export function initPlaybackApp(root: HTMLElement): void {
   offsetInput.addEventListener('input', () => {
     offsetMs = clamp(Number(offsetInput.value), -2000, 2000);
     updateSyncLabels();
+    updateActiveVideoOffset();
     saveSettings();
     renderHud(stateAtPlayhead());
   });
 
   leadInput.addEventListener('input', () => {
     leadMs = clamp(Number(leadInput.value), -200, 400);
+    if (session) session.ffbLeadMs = leadMs;
     updateSyncLabels();
     saveSettings();
     renderHud(stateAtPlayhead());
@@ -1283,7 +1749,7 @@ export function initPlaybackApp(root: HTMLElement): void {
   });
 
   window.addEventListener('beforeunload', () => {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    revokeLocalVideos();
     stopWheelForce();
     void wheel?.disconnect();
     clock?.destroy();
@@ -1299,7 +1765,12 @@ export function initPlaybackApp(root: HTMLElement): void {
     requestAnimationFrame(tick);
   };
 
-  loadSampleTelemetry();
-  setStatus('Synthetic telemetry loaded. Connect a wheel and arm tracking, or load a video.');
+  if (isEditor) {
+    loadSampleTelemetry();
+    setStatus('Synthetic telemetry loaded. Add cameras or import a session.');
+  } else {
+    showVideoEmpty('video');
+    setStatus('Open a session to begin.');
+  }
   requestAnimationFrame(tick);
 }

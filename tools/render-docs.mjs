@@ -19,6 +19,12 @@ const DOCS = [
     description: 'Canonical JSON and CSV telemetry import contract.',
   },
   {
+    source: 'docs/session-format.md',
+    output: 'docs/session-format.html',
+    title: 'Session format',
+    description: 'Ghost Driver session files, camera sources and per-camera offsets.',
+  },
+  {
     source: 'docs/wheel-support.md',
     output: 'docs/wheel-support.html',
     title: 'Wheel support',

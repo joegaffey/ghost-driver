@@ -29,15 +29,14 @@ app.innerHTML = `
         <p class="eyebrow">experimental prototype · v0.0.1</p>
         <h1>Ghost Driver</h1>
         <p class="lede">Watch the lap. Feel the drive.</p>
-        <p class="experiment-note">Experimental build: formats, controls and hardware support may change.</p>
         <p class="intro">
           A pure-browser replay experience for racing and driving footage. Load a video and a telemetry file,
           connect a force-feedback wheel, and let an invisible driver move the wheel through the lap or run.
         </p>
         <div class="actions">
           <a class="button" href="./play.html">Open playback</a>
-          <a class="button ghost" href="./SPEC.html">Read the spec</a>
-          <a class="button ghost" href="./docs/roadmap.html">Roadmap</a>
+          <a class="button ghost" href="./edit.html">Edit session</a>
+          <a class="button ghost" href="#docs">Docs</a>
         </div>
       </div>
 
@@ -73,13 +72,15 @@ app.innerHTML = `
       </div>
     </section>
 
-    <section>
+    <section id="docs">
       <h2>Design docs</h2>
       <div class="doc-grid">
         <a class="doc" href="./SPEC.html"><strong>Specification</strong><span>Product and technical contract</span></a>
         <a class="doc" href="./docs/telemetry-format.html"><strong>Telemetry format</strong><span>Canonical JSON and CSV import</span></a>
+        <a class="doc" href="./docs/session-format.html"><strong>Session format</strong><span>Cameras, offsets and player files</span></a>
         <a class="doc" href="./docs/wheel-support.html"><strong>Wheel support</strong><span>Capability model and adapters</span></a>
         <a class="doc" href="./docs/safety.html"><strong>Safety</strong><span>Hazards, limits, and stop conditions</span></a>
+        <a class="doc" href="./docs/roadmap.html"><strong>Roadmap</strong><span>Milestones and sequencing</span></a>
       </div>
     </section>
 
@@ -87,6 +88,8 @@ app.innerHTML = `
       <span>Ghost Driver</span>
       <span class="dot">·</span>
       <span>Pure browser · WebHID · telemetry files</span>
+      <span class="dot">·</span>
+      <span>Experimental prototype — behavior may change</span>
       <span class="dot">·</span>
       <span>License TBD</span>
     </footer>

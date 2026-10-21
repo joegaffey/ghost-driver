@@ -183,6 +183,20 @@ input[type="range"]::-moz-range-thumb {
   color: var(--danger);
 }
 
+.header-link {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.header-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .play-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -592,6 +606,17 @@ input[type="range"]::-moz-range-thumb {
   flex: 1;
 }
 
+.camera-select {
+  flex-shrink: 0;
+  max-width: 180px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  background: #0b1118;
+  font-size: 0.76rem;
+}
+
 .time-readout {
   min-width: 92px;
   color: var(--muted);
@@ -669,6 +694,95 @@ input[type="range"]::-moz-range-thumb {
 #wheelConnect {
   width: 100%;
   margin-top: 8px;
+}
+
+#sessionEditorFields {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#sessionEditorFields button {
+  width: 100%;
+}
+
+.camera-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.camera-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #0b1118;
+}
+
+.camera-item.active {
+  border-color: var(--accent);
+  background: rgba(127, 227, 208, 0.07);
+}
+
+.camera-pick {
+  display: grid;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.camera-pick:hover {
+  border: 0;
+  background: none;
+}
+
+.camera-pick span {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.camera-pick em {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-style: normal;
+}
+
+.camera-offset {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.camera-remove {
+  padding: 4px 6px;
+  font-size: 0.62rem;
+}
+
+.hint.warn {
+  color: var(--danger);
+}
+
+.text-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--accent);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.text-link:hover {
+  text-decoration: underline;
 }
 
 .file-label {

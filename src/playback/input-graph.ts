@@ -27,10 +27,15 @@ function drawLine(
 ): void {
   if (points.length < 2) return;
 
+  const inset = 3;
+  const chartTop = inset;
+  const chartBottom = height - inset;
+  const chartHeight = chartBottom - chartTop;
+
   ctx.beginPath();
   for (let index = 0; index < points.length; index += 1) {
     const x = (index / (points.length - 1)) * width;
-    const y = height - clamp(valueOf(points[index]), 0, 1) * height;
+    const y = chartBottom - clamp(valueOf(points[index]), 0, 1) * chartHeight;
     if (index === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }

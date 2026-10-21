@@ -28,6 +28,7 @@ Ghost Driver supports both sim and real racing. Use it with simulator laps, real
 - **Browser only.** Static site, no backend, no live telemetry bridge.
 - **Video:** local file, direct MP4/WebM URL, and YouTube via the IFrame API.
 - **Telemetry:** canonical JSON and generic CSV with a column-mapping UI. Native binary formats come later.
+- **Sessions:** one `.ghost.json` with embedded telemetry and multiple camera sources, each with its own offset. Local videos are preview-only until ZIP support.
 - **Wheel:** capability-based, using only our own [webhid-wheel](https://github.com/joegaffey/webhid-wheel) library. Modes are selected from what each device reports (position feedback, force output, direct control). CAMMUS C5 and FFBeast are the first tested devices; other wheels use the same adapter model.
 - **Sync:** manual offset, fine nudge, and a separate FFB lead control.
 - **Safety:** explicit arming, low default force, watchdogs, and automatic stop on pause, seek, buffer, tab hide, blur, disconnect and media error.
@@ -40,6 +41,7 @@ A force-feedback wheel can move unexpectedly and forcefully. Ghost Wheel mode is
 
 - [SPEC.md](./SPEC.md) — product and technical specification.
 - [docs/telemetry-format.md](./docs/telemetry-format.md) — canonical JSON and CSV import contract.
+- [docs/session-format.md](./docs/session-format.md) — player session file, cameras and offsets.
 - [docs/safety.md](./docs/safety.md) — hazard analysis and safety requirements.
 - [docs/wheel-support.md](./docs/wheel-support.md) — capability model, adapter contract, and notes for the first tested devices.
 - [docs/roadmap.md](./docs/roadmap.md) — milestones and sequencing.
